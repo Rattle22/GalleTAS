@@ -10,7 +10,7 @@ const buysPerSecond = 2;
 /*===================================================
     EXECUTION CONSTANTS
 ===================================================*/
-const goldenCookie = Game.shimmerTypes['golden'];
+const goldenCookie = 'golden';
 
 /*===================================================
     SHIMMER LOGIC
@@ -18,12 +18,14 @@ const goldenCookie = Game.shimmerTypes['golden'];
 
 function clickShimmer(shimmer) {
     if(shimmer.type === goldenCookie){
-        shimmer.pop()
+        shimmer.pop();
     }
 }
 
 function clickShimmers() {
-    Game.shimmers.forEach(clickShimmer);
+    for(var i in Game.shimmers){
+        clickShimmer(Game.shimmers[i]);
+    }
 }
 /*===================================================
     CLICK LOGIC
@@ -79,6 +81,16 @@ function buyOptimally() {
 }
 
 /*===================================================
+    DEBUG FUNCTIONS
+===================================================*/
+
+function spawnGolden(){
+    var newShimmer = new Game.shimmer(goldenCookie);
+    newShimmer.spawnLead = 1;
+    Game.shimmerTypes[goldenCookie].spawned = 1;
+}
+
+/*===================================================
     INTERVAL LOGIC
 ===================================================*/
 
@@ -87,15 +99,15 @@ var clickerBot;
 var cookieBot;
 
 function start(){
-    shimmerBot = setInterval(clickShimmers, 1000 / clicksPerSecond);
-    clickerBot = setInterval(clickCookie, 1000 / shimmerClicksPerSecond);
+    shimmerBot = setInterval(clickCookie, 1000 / clicksPerSecond);
+    clickerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
 }
 
 function stop(){
-    stopInterval(shimmerBot);
-    stopInterval(clickerBot);
-    stopInterval(cookieBot);
+    clearInterval(shimmerBot);
+    clearInterval(clickerBot);
+    clearInterval(cookieBot);
 }
 
 if(autostart){
