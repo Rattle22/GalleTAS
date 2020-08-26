@@ -64,8 +64,8 @@ function showBuy(id){
     previousId = id;
 
     var txt = "Buying " + Game.ObjectsById[id].name +
-    " for " + Math.round(Game.ObjectsById[id].price) +
-    " at " + Math.round(Game.ObjectsById[id].price / Game.ObjectsById[id].storedCps) +
+    " for " + Beautify(Game.ObjectsById[id].price) +
+    " at " + Beautify(Game.ObjectsById[id].price / Game.ObjectsById[id].storedCps) +
     " cookies per CPS!";
     Game.TickerAge = 1000000;
     Game.Ticker = txt;
