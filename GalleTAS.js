@@ -69,9 +69,7 @@ function showBuy(id){
     " for " + Beautify(Game.ObjectsById[id].price) +
     " at " + Beautify(Game.ObjectsById[id].price / Game.ObjectsById[id].storedCps) +
     " cookies per CPS!";
-    Game.TickerAge = 1000000;
-    Game.Ticker = txt;
-    Game.TickerDraw();
+    Game.Notify("New Plan!", txt);
 }
 
 function buyOptimally() {
