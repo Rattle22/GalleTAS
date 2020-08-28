@@ -10,6 +10,8 @@ const buysPerSecond = 2;
 /*===================================================
     EXECUTION CONSTANTS
 ===================================================*/
+const wrappers = [];
+
 const goldenCookie = 'golden';
 const bGrandma = Game.ObjectsById[1];
 
@@ -43,17 +45,18 @@ function wrapBuilding(id){
     let b = Game.ObjectsById[id];
     let wrapper = {};
     wrapper.getPrice = function(){
-        return Game.ObjectsById[id].price;
+        return b.price;
     }
     wrapper.getCps = function(){
-        return Game.ObjectsById[id].storedCps;
+        return b.storedCps;
     }
     wrapper.buy = function(){
-        Game.ObjectsById[id].buy();
+        b.buy();
     }
     wrapper.getName = function(){
-        return "Building: " + Game.ObjectsById[id].name;
+        return "Building: " + b.name;
     }
+    wrapper.available = function() { return true; };
     wrapper.canBuyAgain = true;
     return wrapper;
 }
@@ -76,7 +79,7 @@ function getCookieCpsGetter(cookie){
 }
 
 function wrapUpgrade(id){
-    let u = Game.UpgradesInStore[id];
+    let u = Game.Upgrades[id];
     let wrapper = {};
     wrapper.getPrice = () => { return u.getPrice(); };
     
@@ -96,6 +99,7 @@ function wrapUpgrade(id){
     wrapper.getName = () => {
         return "Upgrade: " + u.name;
     }
+    wrapper.available = function() { return u.unlocked && !u.bought; };
     wrapper.canBuyAgain = false;
     return wrapper;
 }
@@ -110,6 +114,8 @@ function findQuickest(objects){
     let soonestRepay = Number.MAX_VALUE;
     for(obj in objects){
         obj = objects[obj];
+        if(!obj.available()) continue;
+        
         let repay = obj.getPrice() / obj.getCps();
         if (repay < soonestRepay) {
             soonestRepay = repay;
@@ -136,16 +142,7 @@ function showBuy(obj){
 }
 
 function buyOptimally() {
-  let objects = [];
-  for(let b in Game.ObjectsById){
-      let wrapped = wrapBuilding(b)
-      objects.push(wrapped);
-  }
-  for(let u in Game.UpgradesInStore){
-      let wrapped = wrapUpgrade(u)
-      if(wrapped) objects.push(wrapped);
-  }
-  let optimal = findBest(objects);
+  let optimal = findBest(wrappers);
   //TODO: Buy in a loop if the money is enough.
   optimal.buy();
   showBuy(optimal);
@@ -168,6 +165,18 @@ function spawnGolden(){
     let newShimmer = new Game.shimmer(goldenCookie);
     newShimmer.spawnLead = 1;
     Game.shimmerTypes[goldenCookie].spawned = 1;
+}
+
+/*===================================================
+    PREPARE LISTS
+===================================================*/
+for(let b in Game.ObjectsById){
+  let wrapped = wrapBuilding(b);
+  if(wrapped) wrappers.push(wrapped);
+}
+for(let u in Game.Upgrades){
+  let wrapped = wrapUpgrade(u);
+  if(wrapped) wrappers.push(wrapped);
 }
 
 /*===================================================
