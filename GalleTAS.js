@@ -23,7 +23,7 @@ function clickShimmer(shimmer) {
 }
 
 function clickShimmers() {
-    for(var i in Game.shimmers){
+    for(let i in Game.shimmers){
         clickShimmer(Game.shimmers[i]);
     }
 }
@@ -38,19 +38,23 @@ function clickCookie(){
 /*===================================================
     BUILDING LOGIC
 ===================================================*/
-function optimalBuildingId() {
-    cpc = Number.MAX_VALUE;
-    var x = 0;
-    for(i = Game.ObjectsById.length-1; i >= 0; i--){
-        var me = Game.ObjectsById[i];
-        var cpc2 = me.price * (Game.cookiesPs + me.storedCps) / me.storedCps; //this addition will make items with worse cost/CpS be bought first if buying them will earn you the cookies needed for better items faster; proven optimal cookie-buying strategy.
-        if (cpc2 < cpc) {
-            cpc = cpc2;
-            x = i;
-        }
+function wrapBuilding(id){
+    let b = Game.ObjectsById[id];
+    let wrapper = {};
+    wrapper.getPrice = function(){
+        return Game.ObjectsById[id].price;
     }
-
-    return x;
+    wrapper.getCps = function(){
+        return Game.ObjectsById[id].storedCps;
+    }
+    wrapper.buy = function(){
+        Game.ObjectsById[id].buy();
+    }
+    wrapper.getName = function(){
+        return "Building: " + Game.ObjectsById[id].name;
+    }
+    wrapper.canBuyAgain = true;
+    return wrapper;
 }
 /*===================================================
     UPGRADE LOGIC
@@ -59,23 +63,55 @@ function optimalBuildingId() {
     BUY LOGIC
 ===================================================*/
 
-var previousId;
+// The quickest is that which pays for itself after the shortest amount of time.
+function findQuickest(objects){
+    let best;
+    let soonestRepay = Number.MAX_VALUE;
+    for(obj in objects){
+        obj = objects[obj];
+        let repay = obj.getPrice() / obj.getCps();
+        if (repay < soonestRepay) {
+            soonestRepay = repay;
+            best = obj;
+        }
+    }
+    return best;
+}
 
-function showBuy(id){
-    if(id == previousId) return;
-    previousId = id;
+function findBest(objects){
+    let quickest = findQuickest(objects);
+    return quickest;
+}
 
-    var txt = "Buying " + Game.ObjectsById[id].name +
-    " for " + Beautify(Game.ObjectsById[id].price) +
-    " at " + Beautify(Game.ObjectsById[id].price / Game.ObjectsById[id].storedCps) +
+function showBuy(obj){
+    //previousId;
+    //if(id == previousId) return;
+    let txt = "Buying " + obj.getName() +
+    " for " + Beautify(obj.getPrice()) +
+    " at " + Beautify(obj.getPrice() / obj.getCps()) +
     " cookies per CPS!";
-    Game.Notify("New Plan!", txt);
+    setSupportText(txt);
+    //Game.Notify("New Plan!", txt);
 }
 
 function buyOptimally() {
-  var optimalId = optimalBuildingId();
-  Game.ObjectsById[optimalId].buy();
-  showBuy(optimalId);
+  let objects = [];
+  for(let b in Game.ObjectsById){
+      objects.push(wrapBuilding(b));
+  }
+  let optimal = findBest(objects);
+  //TODO: Buy in a loop if the money is enough.
+  optimal.buy();
+  showBuy(optimal);
+}
+
+/*===================================================
+    UI FUNCTIONS
+===================================================*/
+
+function setSupportText(str){
+    let supportComment = $('.supportComment');
+    supportComment.childNodes[0].textContent = str;
 }
 
 /*===================================================
@@ -83,7 +119,7 @@ function buyOptimally() {
 ===================================================*/
 
 function spawnGolden(){
-    var newShimmer = new Game.shimmer(goldenCookie);
+    let newShimmer = new Game.shimmer(goldenCookie);
     newShimmer.spawnLead = 1;
     Game.shimmerTypes[goldenCookie].spawned = 1;
 }
