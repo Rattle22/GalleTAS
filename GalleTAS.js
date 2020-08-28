@@ -11,6 +11,7 @@ const buysPerSecond = 2;
     EXECUTION CONSTANTS
 ===================================================*/
 const goldenCookie = 'golden';
+const bGrandma = Game.ObjectsById[1];
 
 /*===================================================
     SHIMMER LOGIC
@@ -59,6 +60,46 @@ function wrapBuilding(id){
 /*===================================================
     UPGRADE LOGIC
 ===================================================*/
+
+function getGrandmaCpsGetter(grandma){
+    return () => {
+        let tieBuilding = grandma.buildingTie; 
+        let bTieCps = tieBuilding.storedCps * bGrandma.amount / (tieBuilding.id - 2) ;
+        return bGrandma.storedTotalCps + bTieCps;
+    };
+}
+
+function getCookieCpsGetter(cookie){
+    return () => {
+        return 0.01 * cookie.power * Game.cookiesPsRaw;
+    };
+}
+
+function wrapUpgrade(id){
+    let u = Game.UpgradesInStore[id];
+    let wrapper = {};
+    wrapper.getPrice = () => { return u.getPrice(); };
+    
+    if(u.pool == "cookie"){
+        wrapper.getCps = getCookieCpsGetter(u);
+    }
+    else if(u.name.includes("grandmas")){
+        wrapper.getCps = getGrandmaCpsGetter(u);
+    }
+    
+    if(!wrapper.getCps){
+        wrapper.getCps = () => 0;
+    }
+    wrapper.buy = () => {
+        u.buy();
+    }
+    wrapper.getName = () => {
+        return "Upgrade: " + u.name;
+    }
+    wrapper.canBuyAgain = false;
+    return wrapper;
+}
+
 /*===================================================
     BUY LOGIC
 ===================================================*/
@@ -97,7 +138,12 @@ function showBuy(obj){
 function buyOptimally() {
   let objects = [];
   for(let b in Game.ObjectsById){
-      objects.push(wrapBuilding(b));
+      let wrapped = wrapBuilding(b)
+      objects.push(wrapped);
+  }
+  for(let u in Game.UpgradesInStore){
+      let wrapped = wrapUpgrade(u)
+      if(wrapped) objects.push(wrapped);
   }
   let optimal = findBest(objects);
   //TODO: Buy in a loop if the money is enough.
