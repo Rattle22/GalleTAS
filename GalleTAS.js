@@ -159,8 +159,20 @@ function findQuickest(objects){
 }
 
 function findBest(objects){
-    let quickest = findQuickest(objects);
-    return quickest;
+    let best = findQuickest(objects);
+    let lowestPrice = best.getPrice();
+    for(obj in objects){
+        obj = objects[obj];
+        if(!obj.available() || obj.getPrice() > lowestPrice) continue;
+        
+        let timeTo = best.getPrice() - obj.getPrice() / Game.cookiesPsRaw;
+        let repayTime = obj.getPrice() / obj.getCps();
+        if(repayTime < timeTo){
+            best = obj;
+            lowestPrice = obj.getPrice();
+        }
+    }
+    return best;
 }
 
 function showBuy(obj){
