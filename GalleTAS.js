@@ -188,8 +188,10 @@ function showBuy(obj){
 
 function buyOptimally() {
   let optimal = findBest(wrappers);
-  //TODO: Buy in a loop if the money is enough.
-  optimal.buy();
+  while(optimal.getPrice() < Game.cookies){
+    optimal.buy();
+    optimal = findBest(wrappers);
+  }
   showBuy(optimal);
 }
 
