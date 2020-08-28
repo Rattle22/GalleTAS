@@ -64,17 +64,17 @@ function wrapBuilding(id){
     UPGRADE LOGIC
 ===================================================*/
 
+function getCookieCpsGetter(cookie){
+    return () => {
+        return 0.01 * cookie.power * Game.cookiesPsRaw;
+    };
+}
+
 function getGrandmaCpsGetter(grandma){
     return () => {
         let tieBuilding = grandma.buildingTie; 
         let bTieCps = tieBuilding.storedCps * bGrandma.amount / (tieBuilding.id - 2) ;
         return bGrandma.storedTotalCps + bTieCps;
-    };
-}
-
-function getCookieCpsGetter(cookie){
-    return () => {
-        return 0.01 * cookie.power * Game.cookiesPsRaw;
     };
 }
 
@@ -99,6 +99,12 @@ function getKittenCpsGetter(kitten){
     };
 }
 
+function getMouseCpsGetter(cookie){
+    return () => {
+        return 0.01 * clicksPerSecond * Game.cookiesPsRaw;
+    };
+}
+
 function wrapUpgrade(id){
     let u = Game.Upgrades[id];
     let wrapper = {};
@@ -112,6 +118,9 @@ function wrapUpgrade(id){
     }
     else if(u.name.includes("Kitten")){
         wrapper.getCps = getKittenCpsGetter(u);
+    }
+    else if(u.name.includes("mouse")){
+        wrapper.getCps = getMouseCpsGetter(u);
     }
     
     if(!wrapper.getCps){
@@ -190,6 +199,22 @@ function printValueOf(obj){
 }
 
 /*===================================================
+    PREPARE LISTS
+===================================================*/
+
+function rebuildWrappers(){
+    wrappers.length = 0;
+    for(let b in Game.ObjectsById){
+      let wrapped = wrapBuilding(b);
+      if(wrapped) wrappers.push(wrapped);
+    }
+    for(let u in Game.Upgrades){
+      let wrapped = wrapUpgrade(u);
+      if(wrapped) wrappers.push(wrapped);
+    }
+}
+
+/*===================================================
     DEBUG FUNCTIONS
 ===================================================*/
 
@@ -208,19 +233,7 @@ function evaluateUpgrade(upgrade){
 }
 
 /*===================================================
-    PREPARE LISTS
-===================================================*/
-for(let b in Game.ObjectsById){
-  let wrapped = wrapBuilding(b);
-  if(wrapped) wrappers.push(wrapped);
-}
-for(let u in Game.Upgrades){
-  let wrapped = wrapUpgrade(u);
-  if(wrapped) wrappers.push(wrapped);
-}
-
-/*===================================================
-    INTERVAL LOGIC
+    START/STOP LOGIC
 ===================================================*/
 
 var shimmerBot;
@@ -228,6 +241,7 @@ var clickerBot;
 var cookieBot;
 
 function start(){
+    rebuildWrappers();
     shimmerBot = setInterval(clickCookie, 1000 / clicksPerSecond);
     clickerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
