@@ -8,7 +8,7 @@ const shimmerClicksPerSecond = 1;
 const buysPerSecond = 2;
 
 /*===================================================
-    EXECUTION CONSTANTS
+    HELPFUL DEFINITIONS
 ===================================================*/
 const wrappers = [];
 
@@ -78,6 +78,27 @@ function getCookieCpsGetter(cookie){
     };
 }
 
+function getKittenCpsGetter(kitten){
+    let mult = 
+    (kitten.name === 'Kitten helpers') ? 0.1 :
+    (kitten.name === 'Kitten workers') ? 0.125 :
+    (kitten.name === 'Kitten engineers') ? 0.15 :
+    (kitten.name === 'Kitten overseers') ? 0.175 :
+    (kitten.name === 'Kitten managers') ? 0.2 :
+    (kitten.name === 'Kitten accountants') ? 0.2 :
+    (kitten.name === 'Kitten specialists') ? 0.2 :
+    (kitten.name === 'Kitten experts') ? 0.2 :
+    (kitten.name === 'Kitten consultants') ? 0.2 :
+    (kitten.name === 'Kitten assistants to the regional manager') ? 0.175 :
+    (kitten.name === 'Kitten marketeers') ? 0.15 :
+    (kitten.name === 'Kitten analysts') ? 0.125 :
+    (kitten.name === 'Kitten executives') ? 0.115 :
+    (kitten.name === 'Kitten angels') ? 0.1 : 0;
+    return function(){
+      return Game.milkProgress * mult * Game.cookiesPsRaw;  
+    };
+}
+
 function wrapUpgrade(id){
     let u = Game.Upgrades[id];
     let wrapper = {};
@@ -88,6 +109,9 @@ function wrapUpgrade(id){
     }
     else if(u.name.includes("grandmas")){
         wrapper.getCps = getGrandmaCpsGetter(u);
+    }
+    else if(u.name.includes("Kitten")){
+        wrapper.getCps = getKittenCpsGetter(u);
     }
     
     if(!wrapper.getCps){
@@ -157,6 +181,14 @@ function setSupportText(str){
     supportComment.childNodes[0].textContent = str;
 }
 
+function printValueOf(obj){
+    console.info(
+    obj.getName() +
+    " costs " + Beautify(obj.getPrice()) +
+    " and is valued at " + Beautify(obj.getPrice() / obj.getCps()) +
+    " cookies per CPS!");
+}
+
 /*===================================================
     DEBUG FUNCTIONS
 ===================================================*/
@@ -165,6 +197,14 @@ function spawnGolden(){
     let newShimmer = new Game.shimmer(goldenCookie);
     newShimmer.spawnLead = 1;
     Game.shimmerTypes[goldenCookie].spawned = 1;
+}
+
+function evaluateBuilding(building){
+    printValueOf(wrapBuilding(building.id));
+}
+
+function evaluateUpgrade(upgrade){
+    printValueOf(wrapUpgrade(upgrade.name));
 }
 
 /*===================================================
