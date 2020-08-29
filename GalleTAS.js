@@ -4,8 +4,9 @@
 
 const autostart = true;
 const clicksPerSecond = 10;
-const shimmerClicksPerSecond = 1;
+const shimmerClicksPerSecond = 2; //Should be > 1 for "Fading Luck" Achievement
 const buysPerSecond = 2;
+const debugging = false;
 
 /*===================================================
     HELPFUL DEFINITIONS
@@ -14,28 +15,32 @@ const wrappers = [];
 
 const goldenCookie = 'golden';
 const bGrandma = Game.ObjectsById[1];
-
-/*===================================================
-    SHIMMER LOGIC
-===================================================*/
-
-function clickShimmer(shimmer) {
-    if(shimmer.type === goldenCookie){
-        shimmer.pop();
-    }
-}
-
-function clickShimmers() {
-    for(let i in Game.shimmers){
-        clickShimmer(Game.shimmers[i]);
-    }
-}
 /*===================================================
     CLICK LOGIC
 ===================================================*/
 
-function clickCookie(){
-    Game.ClickCookie();
+function click(){
+    if(!Game.HasAchiev("Tabloid addiction")){
+        Game.tickerL.click();
+    } else if(!Game.HasAchiev("What\'s in a name")){
+        $("#bakeryName").click();
+        $("#bakeryNameInput").value = "Rat";
+        $("#promptOption0").click();
+    } else if(!Game.HasAchiev("Here you go")){
+        Game.Achievements["Here you go"].click();
+    } else if(!Game.HasAchiev("Tiny cookie")){
+        Game.ClickTinyCookie();
+    } else if(!Game.HasAchiev("Olden days")){
+        $("#logButton").click();
+        $("#menu").children[2].children[0].click();
+    } else if(Game.HasAchiev("Neverclick") || Game.cookieClicks < 15){
+        Game.ClickCookie();
+        if(!Game.HasAchiev("Uncanny Clicker")){
+            for(var i = 0; i < 17 - clicksPerSecond; i++){
+                Game.ClickCookie();
+            }
+        }
+    }
 }
 
 /*===================================================
@@ -50,8 +55,8 @@ function wrapBuilding(id){
     wrapper.getCps = function(){
         return b.storedCps;
     }
-    wrapper.buy = function(){
-        b.buy();
+    wrapper.buy = function(bulk){
+        b.buy(bulk);
     }
     wrapper.getName = function(){
         return "Building: " + b.name;
@@ -126,13 +131,13 @@ function wrapUpgrade(id){
     if(!wrapper.getCps){
         wrapper.getCps = () => 0;
     }
-    wrapper.buy = () => {
+    wrapper.buy = (bulk) => {
         u.buy();
     }
     wrapper.getName = () => {
         return "Upgrade: " + u.name;
     }
-    wrapper.available = function() { return u.unlocked && !u.bought; };
+    wrapper.available = function() { return u.unlocked && !u.bought && Game.HasAchiev("Hardcore"); };
     wrapper.canBuyAgain = false;
     return wrapper;
 }
@@ -165,7 +170,7 @@ function findBest(objects){
         obj = objects[obj];
         if(!obj.available() || obj.getPrice() > lowestPrice) continue;
         
-        let timeTo = best.getPrice() - obj.getPrice() / Game.cookiesPsRaw;
+        let timeTo = (best.getPrice() - obj.getPrice()) / Game.cookiesPsRaw;
         let repayTime = obj.getPrice() / obj.getCps();
         if(repayTime < timeTo){
             best = obj;
@@ -176,23 +181,27 @@ function findBest(objects){
 }
 
 function showBuy(obj){
-    //previousId;
-    //if(id == previousId) return;
     let txt = "Buying " + obj.getName() +
     " for " + Beautify(obj.getPrice()) +
     " at " + Beautify(obj.getPrice() / obj.getCps()) +
     " cookies per CPS!";
     setSupportText(txt);
-    //Game.Notify("New Plan!", txt);
 }
 
 function buyOptimally() {
-  let optimal = findBest(wrappers);
-  while(optimal.getPrice() < Game.cookies){
-    optimal.buy();
-    optimal = findBest(wrappers);
-  }
-  showBuy(optimal);
+    let optimal = findBest(wrappers);
+    let bought = 0;
+    while(optimal.getPrice() < Game.cookies && bought < 50){
+        let bulk = 1;
+        optimal.buy(bulk);
+        optimal = findBest(wrappers);
+        bought += 1;
+    }
+    showBuy(optimal);
+    
+    if(!Game.HasAchiev("Just wrong") && Game.Upgrades["Kitten helpers"].bought){
+        bGrandma.sell(1);
+    }
 }
 
 /*===================================================
@@ -217,6 +226,8 @@ function printValueOf(obj){
 ===================================================*/
 
 function rebuildWrappers(){
+    //TODO: Achievemnt Wrappers
+    
     wrappers.length = 0;
     for(let b in Game.ObjectsById){
       let wrapped = wrapBuilding(b);
@@ -238,6 +249,10 @@ function spawnGolden(){
     Game.shimmerTypes[goldenCookie].spawned = 1;
 }
 
+function debugLoop(){
+    spawnGolden();
+}
+
 function evaluateBuilding(building){
     printValueOf(wrapBuilding(building.id));
 }
@@ -247,24 +262,64 @@ function evaluateUpgrade(upgrade){
 }
 
 /*===================================================
+    SHIMMER LOGIC
+===================================================*/
+
+function clickShimmer(shimmer) {
+    if(shimmer.type === goldenCookie){
+        if(!Game.HasAchiev("Fading luck") && shimmer.life > 30) return; //Fading Luck Achievement
+        shimmer.pop();
+    }
+}
+
+function clickShimmers() {
+    for(let i in Game.shimmers){
+        clickShimmer(Game.shimmers[i]);
+    }
+}
+
+/*===================================================
     START/STOP LOGIC
 ===================================================*/
+
+Game.prefs['fancy'] = false;
+Game.prefs['filters'] = false;
+Game.prefs['particles'] = false;
+Game.prefs['numbers'] = false;
+Game.prefs['milk'] = false;
+Game.prefs['cursors'] = false;
+Game.prefs['wobbly'] = false;
+Game.prefs['cookiesound'] = false;
+Game.prefs['crates'] = false;
+Game.prefs['monospace'] = false;
+Game.prefs['format'] = false;
+Game.prefs['notifs'] = false;
+Game.prefs['warn'] = false;
+Game.prefs['focus'] = true;
+Game.prefs['extraButtons'] = false;
+Game.prefs['askLumps'] = false;
+Game.prefs['customGrandmas'] = false;
+Game.prefs['timeout'] = false;
+Game.volume = 0;
 
 var shimmerBot;
 var clickerBot;
 var cookieBot;
+var debugBot;
 
 function start(){
     rebuildWrappers();
-    shimmerBot = setInterval(clickCookie, 1000 / clicksPerSecond);
-    clickerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
+    clickerBot = setInterval(click, 1000 / clicksPerSecond);
+    shimmerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
+    debugBot = setInterval(debugLoop, 1000);
 }
 
 function stop(){
     clearInterval(shimmerBot);
     clearInterval(clickerBot);
     clearInterval(cookieBot);
+    clearInterval(debugBot);
 }
 
 if(autostart){
