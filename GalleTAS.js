@@ -3,10 +3,14 @@
 ===================================================*/
 
 const autostart = true;
-const clicksPerSecond = 10;
+const targetClicksPerSecond = 10;
 const shimmerClicksPerSecond = 2; //Should be > 1 for "Fading Luck" Achievement
 const buysPerSecond = 2;
 const debugging = false;
+
+function clicksPerSecond(){
+    return targetClicksPerSecond * Game.HasAchiev("Neverclick");
+}
 
 /*===================================================
     HELPFUL DEFINITIONS
@@ -14,7 +18,58 @@ const debugging = false;
 const wrappers = [];
 
 const goldenCookie = 'golden';
+
+const buildings = [
+    Game.ObjectsById[0],
+    Game.ObjectsById[1],
+    Game.ObjectsById[2],
+    Game.ObjectsById[3],
+    Game.ObjectsById[4],
+    Game.ObjectsById[5],
+    Game.ObjectsById[6],
+    Game.ObjectsById[7],
+    Game.ObjectsById[8],
+    Game.ObjectsById[9],
+    Game.ObjectsById[10],
+    Game.ObjectsById[11],
+    Game.ObjectsById[12],
+    Game.ObjectsById[13],
+    Game.ObjectsById[14],
+    Game.ObjectsById[15],
+    Game.ObjectsById[16],
+];
+
+const bCursor = Game.ObjectsById[0];
 const bGrandma = Game.ObjectsById[1];
+
+const mouses = [
+    Game.Upgrades["Plastic mouse"],
+    Game.Upgrades["Iron mouse"],
+    Game.Upgrades["Titanium mouse"],
+    Game.Upgrades["Adamantium mouse"],
+    Game.Upgrades["Unobtainium mouse"],
+    Game.Upgrades["Eludium mouse"],
+    Game.Upgrades["Wishalloy mouse"],
+    Game.Upgrades["Fantasteel mouse"],
+    Game.Upgrades["Nevercrack mouse"],
+    Game.Upgrades["Armythril mouse"],
+    Game.Upgrades["Technobsidian mouse"],
+    Game.Upgrades["Plasmarble mouse"],
+    Game.Upgrades["Miraculite mouse"],
+];
+
+const fingers = [
+    Game.Upgrades["Thousand fingers"],
+    Game.Upgrades["Million fingers"],
+    Game.Upgrades["Billion fingers"],
+    Game.Upgrades["Trillion fingers"],
+    Game.Upgrades["Quadrillion fingers"],
+    Game.Upgrades["Quintillion fingers"],
+    Game.Upgrades["Sextillion fingers"],
+    Game.Upgrades["Septillion fingers"],
+    Game.Upgrades["Octillion fingers"],
+    Game.Upgrades["Nonillion fingers"],
+];
 /*===================================================
     CLICK LOGIC
 ===================================================*/
@@ -36,50 +91,33 @@ function click(){
     } else if(Game.HasAchiev("Neverclick") || Game.cookieClicks < 15){
         Game.ClickCookie();
         if(!Game.HasAchiev("Uncanny Clicker")){
-            for(var i = 0; i < 17 - clicksPerSecond; i++){
+            for(let i = 0; i < 17 - targetClicksPerSecond; i++){
                 Game.ClickCookie();
             }
         }
     }
 }
-
-/*===================================================
-    BUILDING LOGIC
-===================================================*/
-function wrapBuilding(id){
-    let b = Game.ObjectsById[id];
-    let wrapper = {};
-    wrapper.getPrice = function(){
-        return b.price;
-    }
-    wrapper.getCps = function(){
-        return b.storedCps;
-    }
-    wrapper.buy = function(bulk){
-        b.buy(bulk);
-    }
-    wrapper.getName = function(){
-        return "Building: " + b.name;
-    }
-    wrapper.available = function() { return true; };
-    wrapper.canBuyAgain = true;
-    return wrapper;
+        
+function withClickingBonus(cps){
+    let bonus = mouses.reduce((total, mouse) => total + mouse.bought, 0);
+    return cps * (1 + 0.01 * bonus);
 }
+
 /*===================================================
     UPGRADE LOGIC
 ===================================================*/
 
 function getCookieCpsGetter(cookie){
     return () => {
-        return 0.01 * cookie.power * Game.cookiesPsRaw;
+        return withClickingBonus(0.01 * cookie.power * Game.cookiesPsRaw);
     };
 }
 
 function getGrandmaCpsGetter(grandma){
     return () => {
         let tieBuilding = grandma.buildingTie; 
-        let bTieCps = tieBuilding.storedCps * bGrandma.amount / (tieBuilding.id - 2) ;
-        return bGrandma.storedTotalCps + bTieCps;
+        let bTieCps = tieBuilding.storedCps * 0.01 * bGrandma.amount / (tieBuilding.id - 2) ;
+        return withClickingBonus(bGrandma.storedTotalCps + bTieCps);
     };
 }
 
@@ -100,24 +138,43 @@ function getKittenCpsGetter(kitten){
     (kitten.name === 'Kitten executives') ? 0.115 :
     (kitten.name === 'Kitten angels') ? 0.1 : 0;
     return function(){
-      return Game.milkProgress * mult * Game.cookiesPsRaw;  
+      return withClickingBonus(Game.milkProgress * mult * Game.cookiesPsRaw);  
     };
 }
 
 function getMouseCpsGetter(cookie){
     return () => {
-        return 0.01 * clicksPerSecond * Game.cookiesPsRaw;
+        return 0.01 * clicksPerSecond() * Game.cookiesPsRaw;
+    };
+}
+
+function fingerPower(finger){
+    return 0.05 * Math.pow(10, finger.tier - 4) + (finger.tier === 4 ? 0.05 : 0);
+}
+
+function getFingersCpsGetter(finger){
+    return () => {
+        let bonus = fingerPower(finger);
+        let buildingCount = buildings.reduce((total, building) => total + building.amount, 0);
+        buildingCount -= bCursor.amount;
+        return buildingCount * bonus * bCursor.amount;
     };
 }
 
 function getSimpleUpgradeCpsGetter(simple){
     if(simple.id <= 2){ //The first three upgrades have no building tie...
         return () => {
-            return Game.ObjectsById[0].storedTotalCps + Game.computedMouseCps * clicksPerSecond; //...and improve clicks
+            let cursorCps = bCursor.storedTotalCps;
+            let buildingBonus = withClickingBonus(cursorCps) * 2 - cursorCps;
+            
+            let mouseCpsBonus = Game.cookiesPsRaw * 0.01 * mouses.reduce((total, mouse) => total + mouse.bought, 0);
+            let clickingBonus = (Game.computedMouseCps - mouseCpsBonus) * clicksPerSecond();
+            
+            return clickingBonus + buildingBonus; //...and improve clicks
         }
     }
     return () => {
-        return simple.buildingTie.storedTotalCps;
+        return withClickingBonus(simple.buildingTie.storedTotalCps);
     };
 }
 
@@ -148,9 +205,11 @@ function wrapUpgrade(id){
     else if(u.name.includes("mouse")){
         wrapper.getCps = getMouseCpsGetter(u);
     }
+    else if(u.name.includes(" fingers")){ //Space to exclude Ladyfingers
+        wrapper.getCps = getFingersCpsGetter(u);
+    }
     else if(isSimpleUpgrade(u)){ // Must come after grandma upgrade check due to simpleUpgrade implementation.
         wrapper.getCps = getSimpleUpgradeCpsGetter(u);
-        console.info(wrapper.getName() + ": " + wrapper.getCps())
     }
     
     if(!wrapper.getCps){
@@ -163,6 +222,35 @@ function wrapUpgrade(id){
 }
 
 /*===================================================
+    BUILDING LOGIC
+===================================================*/
+
+function fingersBonus(){
+    let bonus = fingers.reduce((total, finger) => total + (finger.bought ? fingerPower(finger) : 0), 0);
+    return bonus;
+}
+
+function wrapBuilding(id){
+    let b = Game.ObjectsById[id];
+    let wrapper = {};
+    wrapper.getPrice = function(){
+        return b.price;
+    }
+    wrapper.getCps = function(){
+        return withClickingBonus(b.cps(b) + fingersBonus());
+    }
+    wrapper.buy = function(bulk){
+        b.buy(bulk);
+    }
+    wrapper.getName = function(){
+        return "Building: " + b.name;
+    }
+    wrapper.available = function() { return true; };
+    wrapper.canBuyAgain = true;
+    return wrapper;
+}
+
+/*===================================================
     BUY LOGIC
 ===================================================*/
 
@@ -170,7 +258,7 @@ function wrapUpgrade(id){
 function findQuickest(objects){
     let best;
     let soonestRepay = Number.MAX_VALUE;
-    for(obj in objects){
+    for(let obj in objects){
         obj = objects[obj];
         if(!obj.available()) continue;
         
@@ -186,7 +274,7 @@ function findQuickest(objects){
 function findBest(objects){
     let best = findQuickest(objects);
     let lowestPrice = best.getPrice();
-    for(obj in objects){
+    for(let obj in objects){
         obj = objects[obj];
         if(!obj.available() || obj.getPrice() > lowestPrice) continue;
         
@@ -308,7 +396,7 @@ function settings(){
     Game.prefs['particles'] = false;
     Game.prefs['numbers'] = false;
     Game.prefs['milk'] = false;
-    Game.prefs['cursors'] = false;
+    Game.prefs['cursors'] = true;
     Game.prefs['wobbly'] = false;
     Game.prefs['cookiesound'] = false;
     Game.prefs['crates'] = false;
@@ -332,7 +420,7 @@ var debugBot;
 function start(){
     settings();
     rebuildWrappers();
-    clickerBot = setInterval(click, 1000 / clicksPerSecond);
+    clickerBot = setInterval(click, 1000 / targetClicksPerSecond);
     shimmerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
     if(debugging){
