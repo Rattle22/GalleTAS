@@ -110,10 +110,31 @@ function getMouseCpsGetter(cookie){
     };
 }
 
+function getSimpleUpgradeCpsGetter(simple){
+    if(simple.id <= 2){ //The first three upgrades have no building tie...
+        return () => {
+            return Game.ObjectsById[0].storedTotalCps + Game.computedMouseCps * clicksPerSecond; //...and improve clicks
+        }
+    }
+    return () => {
+        return simple.buildingTie.storedTotalCps;
+    };
+}
+
+function isSimpleUpgrade(up){
+    return up.desc.includes(" are <b>twice</b> as efficient.") || up.desc.includes(" are twice as productive.");
+}
+
 function wrapUpgrade(id){
     let u = Game.Upgrades[id];
     let wrapper = {};
     wrapper.getPrice = () => { return u.getPrice(); };
+    wrapper.buy = (bulk) => {
+        u.buy();
+    }
+    wrapper.getName = () => {
+        return "Upgrade: " + u.name;
+    }
     
     if(u.pool == "cookie"){
         wrapper.getCps = getCookieCpsGetter(u);
@@ -127,16 +148,15 @@ function wrapUpgrade(id){
     else if(u.name.includes("mouse")){
         wrapper.getCps = getMouseCpsGetter(u);
     }
+    else if(isSimpleUpgrade(u)){ // Must come after grandma upgrade check due to simpleUpgrade implementation.
+        wrapper.getCps = getSimpleUpgradeCpsGetter(u);
+        console.info(wrapper.getName() + ": " + wrapper.getCps())
+    }
     
     if(!wrapper.getCps){
         wrapper.getCps = () => 0;
     }
-    wrapper.buy = (bulk) => {
-        u.buy();
-    }
-    wrapper.getName = () => {
-        return "Upgrade: " + u.name;
-    }
+    
     wrapper.available = function() { return u.unlocked && !u.bought && Game.HasAchiev("Hardcore"); };
     wrapper.canBuyAgain = false;
     return wrapper;
@@ -191,7 +211,7 @@ function showBuy(obj){
 function buyOptimally() {
     let optimal = findBest(wrappers);
     let bought = 0;
-    while(optimal.getPrice() < Game.cookies && bought < 50){
+    while(optimal.getPrice() <= Game.cookies && bought < 50){
         let bulk = 1;
         optimal.buy(bulk);
         optimal = findBest(wrappers);
@@ -282,25 +302,27 @@ function clickShimmers() {
     START/STOP LOGIC
 ===================================================*/
 
-Game.prefs['fancy'] = false;
-Game.prefs['filters'] = false;
-Game.prefs['particles'] = false;
-Game.prefs['numbers'] = false;
-Game.prefs['milk'] = false;
-Game.prefs['cursors'] = false;
-Game.prefs['wobbly'] = false;
-Game.prefs['cookiesound'] = false;
-Game.prefs['crates'] = false;
-Game.prefs['monospace'] = false;
-Game.prefs['format'] = false;
-Game.prefs['notifs'] = false;
-Game.prefs['warn'] = false;
-Game.prefs['focus'] = true;
-Game.prefs['extraButtons'] = false;
-Game.prefs['askLumps'] = false;
-Game.prefs['customGrandmas'] = false;
-Game.prefs['timeout'] = false;
-Game.volume = 0;
+function settings(){
+    Game.prefs['fancy'] = false;
+    Game.prefs['filters'] = false;
+    Game.prefs['particles'] = false;
+    Game.prefs['numbers'] = false;
+    Game.prefs['milk'] = false;
+    Game.prefs['cursors'] = false;
+    Game.prefs['wobbly'] = false;
+    Game.prefs['cookiesound'] = false;
+    Game.prefs['crates'] = false;
+    Game.prefs['monospace'] = false;
+    Game.prefs['format'] = false;
+    Game.prefs['notifs'] = false;
+    Game.prefs['warn'] = false;
+    Game.prefs['focus'] = true;
+    Game.prefs['extraButtons'] = false;
+    Game.prefs['askLumps'] = false;
+    Game.prefs['customGrandmas'] = false;
+    Game.prefs['timeout'] = false;
+    Game.volume = 0;
+}
 
 var shimmerBot;
 var clickerBot;
@@ -308,18 +330,23 @@ var cookieBot;
 var debugBot;
 
 function start(){
+    settings();
     rebuildWrappers();
     clickerBot = setInterval(click, 1000 / clicksPerSecond);
     shimmerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
-    debugBot = setInterval(debugLoop, 1000);
+    if(debugging){
+        debugBot = setInterval(debugLoop, 1000);
+    }
 }
 
 function stop(){
     clearInterval(shimmerBot);
     clearInterval(clickerBot);
     clearInterval(cookieBot);
-    clearInterval(debugBot);
+    if(debugBot){
+        debugBot = setInterval(debugLoop, 1000);
+    }
 }
 
 if(autostart){
