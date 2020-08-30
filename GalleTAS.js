@@ -8,7 +8,7 @@ const shimmerClicksPerSecond = 2; //Should be > 1 for "Fading Luck" Achievement
 const buysPerSecond = 2;
 const debugging = false;
 
-function clicksPerSecond(){
+function clicksPerSecond() {
     return targetClicksPerSecond * Game.HasAchiev("Neverclick");
 }
 
@@ -74,31 +74,31 @@ const fingers = [
     CLICK LOGIC
 ===================================================*/
 
-function click(){
-    if(!Game.HasAchiev("Tabloid addiction")){
+function click() {
+    if(!Game.HasAchiev("Tabloid addiction")) {
         Game.tickerL.click();
-    } else if(!Game.HasAchiev("What\'s in a name")){
+    } else if(!Game.HasAchiev("What\'s in a name")) {
         $("#bakeryName").click();
         $("#bakeryNameInput").value = "Rat";
         $("#promptOption0").click();
-    } else if(!Game.HasAchiev("Here you go")){
+    } else if(!Game.HasAchiev("Here you go")) {
         Game.Achievements["Here you go"].click();
-    } else if(!Game.HasAchiev("Tiny cookie")){
+    } else if(!Game.HasAchiev("Tiny cookie")) {
         Game.ClickTinyCookie();
-    } else if(!Game.HasAchiev("Olden days")){
+    } else if(!Game.HasAchiev("Olden days")) {
         $("#logButton").click();
         $("#menu").children[2].children[0].click();
-    } else if(Game.HasAchiev("Neverclick") || Game.cookieClicks < 15){
+    } else if(Game.HasAchiev("Neverclick") || Game.cookieClicks < 15) {
         Game.ClickCookie();
-        if(!Game.HasAchiev("Uncanny Clicker")){
-            for(let i = 0; i < 17 - targetClicksPerSecond; i++){
+        if(!Game.HasAchiev("Uncanny Clicker")) {
+            for(let i = 0; i < 17 - targetClicksPerSecond; i++) {
                 Game.ClickCookie();
             }
         }
     }
 }
         
-function withClickingBonus(cps){
+function withClickingBonus(cps) {
     let bonus = mouses.reduce((total, mouse) => total + mouse.bought, 0);
     return cps * (1 + 0.01 * bonus);
 }
@@ -107,13 +107,13 @@ function withClickingBonus(cps){
     UPGRADE LOGIC
 ===================================================*/
 
-function getCookieCpsGetter(cookie){
+function getCookieCpsGetter(cookie) {
     return () => {
         return withClickingBonus(0.01 * cookie.power * Game.cookiesPsRaw);
     };
 }
 
-function getGrandmaCpsGetter(grandma){
+function getGrandmaCpsGetter(grandma) {
     return () => {
         let tieBuilding = grandma.buildingTie; 
         let bTieCps = tieBuilding.storedCps * 0.01 * bGrandma.amount / (tieBuilding.id - 2) ;
@@ -121,7 +121,7 @@ function getGrandmaCpsGetter(grandma){
     };
 }
 
-function getKittenCpsGetter(kitten){
+function getKittenCpsGetter(kitten) {
     let mult = 
     (kitten.name === 'Kitten helpers') ? 0.1 :
     (kitten.name === 'Kitten workers') ? 0.125 :
@@ -137,22 +137,22 @@ function getKittenCpsGetter(kitten){
     (kitten.name === 'Kitten analysts') ? 0.125 :
     (kitten.name === 'Kitten executives') ? 0.115 :
     (kitten.name === 'Kitten angels') ? 0.1 : 0;
-    return function(){
+    return function() {
       return withClickingBonus(Game.milkProgress * mult * Game.cookiesPsRaw);  
     };
 }
 
-function getMouseCpsGetter(cookie){
+function getMouseCpsGetter(cookie) {
     return () => {
         return 0.01 * clicksPerSecond() * Game.cookiesPsRaw;
     };
 }
 
-function fingerPower(finger){
+function fingerPower(finger) {
     return 0.05 * Math.pow(10, finger.tier - 4) + (finger.tier === 4 ? 0.05 : 0);
 }
 
-function getFingersCpsGetter(finger){
+function getFingersCpsGetter(finger) {
     return () => {
         let bonus = fingerPower(finger);
         let buildingCount = buildings.reduce((total, building) => total + building.amount, 0);
@@ -161,8 +161,8 @@ function getFingersCpsGetter(finger){
     };
 }
 
-function getSimpleUpgradeCpsGetter(simple){
-    if(simple.id <= 2){ //The first three upgrades have no building tie...
+function getSimpleUpgradeCpsGetter(simple) {
+    if(simple.id <= 2) { //The first three upgrades have no building tie...
         return () => {
             let cursorCps = bCursor.storedTotalCps;
             let buildingBonus = withClickingBonus(cursorCps) * 2 - cursorCps;
@@ -178,11 +178,11 @@ function getSimpleUpgradeCpsGetter(simple){
     };
 }
 
-function isSimpleUpgrade(up){
+function isSimpleUpgrade(up) {
     return up.desc.includes(" are <b>twice</b> as efficient.") || up.desc.includes(" are twice as productive.");
 }
 
-function wrapUpgrade(id){
+function wrapUpgrade(id) {
     let u = Game.Upgrades[id];
     let wrapper = {};
     wrapper.getPrice = () => { return u.getPrice(); };
@@ -193,26 +193,26 @@ function wrapUpgrade(id){
         return "Upgrade: " + u.name;
     }
     
-    if(u.pool == "cookie"){
+    if(u.pool == "cookie") {
         wrapper.getCps = getCookieCpsGetter(u);
     }
-    else if(u.name.includes("grandmas")){
+    else if(u.name.includes("grandmas")) {
         wrapper.getCps = getGrandmaCpsGetter(u);
     }
-    else if(u.name.includes("Kitten")){
+    else if(u.name.includes("Kitten")) {
         wrapper.getCps = getKittenCpsGetter(u);
     }
-    else if(u.name.includes("mouse")){
+    else if(u.name.includes("mouse")) {
         wrapper.getCps = getMouseCpsGetter(u);
     }
-    else if(u.name.includes(" fingers")){ //Space to exclude Ladyfingers
+    else if(u.name.includes(" fingers")) { //Space to exclude Ladyfingers
         wrapper.getCps = getFingersCpsGetter(u);
     }
-    else if(isSimpleUpgrade(u)){ // Must come after grandma upgrade check due to simpleUpgrade implementation.
+    else if(isSimpleUpgrade(u)) { // Must come after grandma upgrade check due to simpleUpgrade implementation.
         wrapper.getCps = getSimpleUpgradeCpsGetter(u);
     }
     
-    if(!wrapper.getCps){
+    if(!wrapper.getCps) {
         wrapper.getCps = () => 0;
     }
     
@@ -225,24 +225,24 @@ function wrapUpgrade(id){
     BUILDING LOGIC
 ===================================================*/
 
-function fingersBonus(){
+function fingersBonus() {
     let bonus = fingers.reduce((total, finger) => total + (finger.bought ? fingerPower(finger) : 0), 0);
     return bonus;
 }
 
-function wrapBuilding(id){
+function wrapBuilding(id) {
     let b = Game.ObjectsById[id];
     let wrapper = {};
-    wrapper.getPrice = function(){
+    wrapper.getPrice = function() {
         return b.price;
     }
-    wrapper.getCps = function(){
+    wrapper.getCps = function() {
         return withClickingBonus(b.cps(b) + fingersBonus());
     }
-    wrapper.buy = function(bulk){
+    wrapper.buy = function(bulk) {
         b.buy(bulk);
     }
-    wrapper.getName = function(){
+    wrapper.getName = function() {
         return "Building: " + b.name;
     }
     wrapper.available = function() { return true; };
@@ -255,10 +255,10 @@ function wrapBuilding(id){
 ===================================================*/
 
 // The quickest is that which pays for itself after the shortest amount of time.
-function findQuickest(objects){
+function findQuickest(objects) {
     let best;
     let soonestRepay = Number.MAX_VALUE;
-    for(let obj in objects){
+    for(let obj in objects) {
         obj = objects[obj];
         if(!obj.available()) continue;
         
@@ -271,16 +271,16 @@ function findQuickest(objects){
     return best;
 }
 
-function findBest(objects){
+function findBest(objects) {
     let best = findQuickest(objects);
     let lowestPrice = best.getPrice();
-    for(let obj in objects){
+    for(let obj in objects) {
         obj = objects[obj];
         if(!obj.available() || obj.getPrice() > lowestPrice) continue;
         
         let timeTo = (best.getPrice() - obj.getPrice()) / Game.cookiesPsRaw;
         let repayTime = obj.getPrice() / obj.getCps();
-        if(repayTime < timeTo){
+        if(repayTime < timeTo) {
             best = obj;
             lowestPrice = obj.getPrice();
         }
@@ -288,7 +288,7 @@ function findBest(objects){
     return best;
 }
 
-function showBuy(obj){
+function showBuy(obj) {
     let txt = "Buying " + obj.getName() +
     " for " + Beautify(obj.getPrice()) +
     " at " + Beautify(obj.getPrice() / obj.getCps()) +
@@ -299,7 +299,7 @@ function showBuy(obj){
 function buyOptimally() {
     let optimal = findBest(wrappers);
     let bought = 0;
-    while(optimal.getPrice() <= Game.cookies && bought < 50){
+    while(optimal.getPrice() <= Game.cookies && bought < 50) {
         let bulk = 1;
         optimal.buy(bulk);
         optimal = findBest(wrappers);
@@ -307,7 +307,7 @@ function buyOptimally() {
     }
     showBuy(optimal);
     
-    if(!Game.HasAchiev("Just wrong") && Game.Upgrades["Kitten helpers"].bought){
+    if(!Game.HasAchiev("Just wrong") && Game.Upgrades["Kitten helpers"].bought) {
         bGrandma.sell(1);
     }
 }
@@ -316,12 +316,12 @@ function buyOptimally() {
     UI FUNCTIONS
 ===================================================*/
 
-function setSupportText(str){
+function setSupportText(str) {
     let supportComment = $('.supportComment');
     supportComment.childNodes[0].textContent = str;
 }
 
-function printValueOf(obj){
+function printValueOf(obj) {
     console.info(
     obj.getName() +
     " costs " + Beautify(obj.getPrice()) +
@@ -333,15 +333,15 @@ function printValueOf(obj){
     PREPARE LISTS
 ===================================================*/
 
-function rebuildWrappers(){
+function rebuildWrappers() {
     //TODO: Achievemnt Wrappers
     
     wrappers.length = 0;
-    for(let b in Game.ObjectsById){
+    for(let b in Game.ObjectsById) {
       let wrapped = wrapBuilding(b);
       if(wrapped) wrappers.push(wrapped);
     }
-    for(let u in Game.Upgrades){
+    for(let u in Game.Upgrades) {
       let wrapped = wrapUpgrade(u);
       if(wrapped) wrappers.push(wrapped);
     }
@@ -351,21 +351,21 @@ function rebuildWrappers(){
     DEBUG FUNCTIONS
 ===================================================*/
 
-function spawnGolden(){
+function spawnGolden() {
     let newShimmer = new Game.shimmer(goldenCookie);
     newShimmer.spawnLead = 1;
     Game.shimmerTypes[goldenCookie].spawned = 1;
 }
 
-function debugLoop(){
+function debugLoop() {
     spawnGolden();
 }
 
-function evaluateBuilding(building){
+function evaluateBuilding(building) {
     printValueOf(wrapBuilding(building.id));
 }
 
-function evaluateUpgrade(upgrade){
+function evaluateUpgrade(upgrade) {
     printValueOf(wrapUpgrade(upgrade.name));
 }
 
@@ -374,14 +374,14 @@ function evaluateUpgrade(upgrade){
 ===================================================*/
 
 function clickShimmer(shimmer) {
-    if(shimmer.type === goldenCookie){
+    if(shimmer.type === goldenCookie) {
         if(!Game.HasAchiev("Fading luck") && shimmer.life > 30) return; //Fading Luck Achievement
         shimmer.pop();
     }
 }
 
 function clickShimmers() {
-    for(let i in Game.shimmers){
+    for(let i in Game.shimmers) {
         clickShimmer(Game.shimmers[i]);
     }
 }
@@ -390,7 +390,7 @@ function clickShimmers() {
     START/STOP LOGIC
 ===================================================*/
 
-function settings(){
+function settings() {
     Game.prefs['fancy'] = false;
     Game.prefs['filters'] = false;
     Game.prefs['particles'] = false;
@@ -417,26 +417,26 @@ var clickerBot;
 var cookieBot;
 var debugBot;
 
-function start(){
+function start() {
     settings();
     rebuildWrappers();
     clickerBot = setInterval(click, 1000 / targetClicksPerSecond);
     shimmerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
-    if(debugging){
+    if(debugging) {
         debugBot = setInterval(debugLoop, 1000);
     }
 }
 
-function stop(){
+function stop() {
     clearInterval(shimmerBot);
     clearInterval(clickerBot);
     clearInterval(cookieBot);
-    if(debugBot){
+    if(debugBot) {
         debugBot = setInterval(debugLoop, 1000);
     }
 }
 
-if(autostart){
+if(autostart) {
     start();
 }
