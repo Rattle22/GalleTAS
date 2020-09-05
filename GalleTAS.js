@@ -1,20 +1,24 @@
+//}
 /*===================================================
     CONFIGURATION
 ===================================================*/
+//{
 
 const autostart = true;
-const targetClicksPerSecond = 10;
-const shimmerClicksPerSecond = 2; //Should be > 1 for "Fading Luck" Achievement
-const buysPerSecond = 2;
-const debugging = false;
+var targetClicksPerSecond = 10;
+var shimmerClicksPerSecond = 2; //Should be > 1 for "Fading Luck" Achievement
+var buysPerSecond = 2;
+var marketInterval = 1; // In seconds.
 
 function clicksPerSecond() {
     return targetClicksPerSecond * Game.HasAchiev("Neverclick");
 }
 
+//}
 /*===================================================
     HELPFUL DEFINITIONS
 ===================================================*/
+//{
 const wrappers = [];
 
 const goldenCookie = 'golden';
@@ -41,6 +45,8 @@ const buildings = [
 
 const bCursor = Game.ObjectsById[0];
 const bGrandma = Game.ObjectsById[1];
+const bBank = Game.ObjectsById[5];
+const bAlchemyLab = Game.ObjectsById[9];
 
 const mouses = [
     Game.Upgrades["Plastic mouse"],
@@ -70,9 +76,17 @@ const fingers = [
     Game.Upgrades["Octillion fingers"],
     Game.Upgrades["Nonillion fingers"],
 ];
+
+function prebuffMult() {
+    let noMultCps = Game.cookiesPs / Game.globalCpsMult; // Divide both normal boni and buffs out
+    return Game.unbuffedCps / noMultCps; // Only the non buff mult remains
+}
+
+//}
 /*===================================================
     CLICK LOGIC
 ===================================================*/
+//{
 
 function click() {
     if(!Game.HasAchiev("Tabloid addiction")) {
@@ -103,9 +117,11 @@ function withClickingBonus(cps) {
     return cps * (1 + 0.01 * bonus);
 }
 
+//}
 /*===================================================
     UPGRADE LOGIC
 ===================================================*/
+//{
 
 function getCookieCpsGetter(cookie) {
     return () => {
@@ -221,9 +237,11 @@ function wrapUpgrade(id) {
     return wrapper;
 }
 
+//}
 /*===================================================
     BUILDING LOGIC
 ===================================================*/
+//{
 
 function fingersBonus() {
     let bonus = fingers.reduce((total, finger) => total + (finger.bought ? fingerPower(finger) : 0), 0);
@@ -250,9 +268,11 @@ function wrapBuilding(id) {
     return wrapper;
 }
 
+//}
 /*===================================================
     BUY LOGIC
 ===================================================*/
+//{
 
 // The quickest is that which pays for itself after the shortest amount of time.
 function findQuickest(objects) {
@@ -288,36 +308,43 @@ function findBest(objects) {
     return best;
 }
 
-function showBuy(obj) {
+function showBuy(obj, funding) {
     let txt = "Buying " + obj.getName() +
     " for " + Beautify(obj.getPrice()) +
     " at " + Beautify(obj.getPrice() / obj.getCps()) +
-    " cookies per CPS!";
+    " cookies per CPS!" + 
+    "\n" + funding;
     setSupportText(txt);
 }
 
 function buyOptimally() {
-    let optimal = findBest(wrappers);
     let bought = 0;
-    while(optimal.getPrice() <= Game.cookies && bought < 50) {
-        let bulk = 1;
-        optimal.buy(bulk);
+    let optimal = {buy: (x) => {}};
+    let funding = "";
+    
+    do {
+        optimal.buy(1);
         optimal = findBest(wrappers);
+        funding = fund(optimal.getPrice() - Game.cookies);
         bought += 1;
-    }
-    showBuy(optimal);
+    } while(optimal.getPrice() <= Game.cookies && bought < 50);
+    showBuy(optimal, funding);
     
     if(!Game.HasAchiev("Just wrong") && Game.Upgrades["Kitten helpers"].bought) {
         bGrandma.sell(1);
     }
 }
 
+//}
 /*===================================================
     UI FUNCTIONS
 ===================================================*/
+//{
+
+const supportComment = $('.supportComment');
+supportComment.style.whiteSpace = "pre-line";
 
 function setSupportText(str) {
-    let supportComment = $('.supportComment');
     supportComment.childNodes[0].textContent = str;
 }
 
@@ -329,9 +356,19 @@ function printValueOf(obj) {
     " cookies per CPS!");
 }
 
+function evaluateBuilding(building) {
+    printValueOf(wrapBuilding(building.id));
+}
+
+function evaluateUpgrade(upgrade) {
+    printValueOf(wrapUpgrade(upgrade.name));
+}
+
+//}
 /*===================================================
     PREPARE LISTS
 ===================================================*/
+//{
 
 function rebuildWrappers() {
     //TODO: Achievemnt Wrappers
@@ -347,31 +384,11 @@ function rebuildWrappers() {
     }
 }
 
-/*===================================================
-    DEBUG FUNCTIONS
-===================================================*/
-
-function spawnGolden() {
-    let newShimmer = new Game.shimmer(goldenCookie);
-    newShimmer.spawnLead = 1;
-    Game.shimmerTypes[goldenCookie].spawned = 1;
-}
-
-function debugLoop() {
-    spawnGolden();
-}
-
-function evaluateBuilding(building) {
-    printValueOf(wrapBuilding(building.id));
-}
-
-function evaluateUpgrade(upgrade) {
-    printValueOf(wrapUpgrade(upgrade.name));
-}
-
+//}
 /*===================================================
     SHIMMER LOGIC
 ===================================================*/
+//{
 
 function clickShimmer(shimmer) {
     if(shimmer.type === goldenCookie) {
@@ -386,9 +403,176 @@ function clickShimmers() {
     }
 }
 
+//}
+/*===================================================
+    ASSETS
+===================================================*/
+//{
+
+/* Asset Definition:
+ * name -> String:
+ *  A descriptive name for the asset.
+ * getAmount() -> Number:
+ *  Returns the amount of cookies available from this asset.
+ * liquidize(demand) -> Number:
+ *  Attempts to liquidizes the Asset to satisfy the demand.
+ *  Frees assets even when the demand can not be met. Returns how many cookies were freed.
+ * available() -> bool:
+ *  Returns whether the asset can currently be liquidized.
+ * priority() -> Number:
+ *  Returns the priority of the asset.
+ */
+const assets = [];
+var stockMarketAdded = false;
+
+function stockMarketLoaded() {
+    return bBank.minigameLoaded;
+}
+
+function stockMarket() {
+    return bBank.minigame;
+}
+
+function currentOverhead(brokers) {
+    return 1 + 0.01 * (20 * Math.pow(0.95, brokers));
+}
+
+function obtainStock() {
+    if(!stockMarketLoaded()) return;
+    let market = stockMarket();
+    
+    for(let good in market.goodsById) {
+        good = market.goodsById[good];
+        if(!good.active) continue;
+        
+        let price = good.val * currentOverhead(market.brokers);
+        if(price < market.getRestingVal(good.id) && good.stock < market.getGoodMaxStock(good)) {
+            console.info("Buying " + good.name + " at " + good.val + " each.");
+            market.buyGood(good.id, 10000); // Is equal to buy Max.
+        }
+    }
+}
+
+//!!!!!!!!!!!!!!!!!!!COOOOKIESpSrAW ACTUALLY CONTAINS A MULT
+
+function addStockAssets(market, assets){
+    for(let good in market.goodsById){
+        good = market.goodsById[good];
+        
+        let asset = {};
+        asset.name = "Stock: " + good.name;
+        asset.getAmount = function() {
+            return good.stock * good.val * Game.cookiesPsRawHighest;
+        }
+        asset.liquidize = function(demand) {
+            let targetSell = Math.ceil(demand / (good.val * Game.cookiesPsRawHighest));
+            let actualSell = Math.min(targetSell, good.stock);
+            let volume = actualSell * good.val * Game.cookiesPsRawHighest;
+            console.info("Selling " + actualSell + " " + asset.name + " at " + good.val + " each");
+            market.sellGood(good.id, actualSell);
+            return volume;
+        }
+        asset.available = function() {
+            return good.active && good.val > market.getRestingVal(good.id) && good.stock > 0;
+        }
+        asset.priority = function() {
+            return good.val - market.getRestingVal(good.id);
+        }
+        assets.push(asset);
+    }
+}
+
+var lastTime = Date.now();
+
+function fund(target) {
+    if(target < 0) return;
+    if(!stockMarketAdded && stockMarketLoaded()){
+        addStockAssets(stockMarket(), assets);
+        stockMarketAdded = true;
+    }
+    
+    let hypothetical = target;
+    assets.sort((a, b) => b.priority() - a.priority());
+    for(let asset in assets) {
+        asset = assets[asset];
+        if(!asset.available()) continue;
+        
+        hypothetical -= asset.getAmount();
+        if(hypothetical < 0) {
+            let prevTarget = target;
+            for(let sellAsset in assets) {
+                sellAsset = assets[sellAsset];
+                if(!sellAsset.available()) continue;
+                
+                let obtained = sellAsset.liquidize(target);
+                target -= obtained;
+                console.info("Sold " + asset.name + " for " + obtained);
+                console.info("Obtained " + Beautify(prevTarget - target) + "/" + Beautify(prevTarget) + " so far")
+                if(target < 0) {
+                    return;
+                }
+            }
+        }
+    }
+    return "Funds are at: " + Beautify(target - hypothetical) + "/" + Beautify(target);
+}
+
+function obtainAssets() {
+    obtainStock();
+}
+
+//}
+/*===================================================
+    DEBUG FUNCTIONS
+===================================================*/
+//{
+
+var goldenSpawn;
+var marketTick;
+
+function spawnGolden() {
+    let newShimmer = new Game.shimmer(goldenCookie);
+    newShimmer.spawnLead = 1;
+    Game.shimmerTypes[goldenCookie].spawned = 1;
+}
+
+function toggleDebugGolden(everyX = 5) {
+    if(goldenSpawn) {
+        console.info("Stopping golden tick!");
+        clearInterval(goldenSpawn);
+        goldenSpawn = 0;
+    }
+    else {
+        console.info("Starting golden tick!");
+        goldenSpawn = setInterval(spawnGolden, everyX * 1000);
+    }
+}
+
+function tickMarket() {
+    stockMarket().tick();
+}
+
+function toggleDebugMarket(everyX = 5) {
+    if(!stockMarketLoaded()) {
+        console.info("Not starting bot: Markets are not loaded yet!");
+        return;
+    }
+    if(marketTick) {
+        console.info("Stopping market tick!");
+        clearInterval(marketTick);
+        marketTick = 0;
+    }
+    else {
+        console.info("Starting market tick!");
+        marketTick = setInterval(tickMarket, everyX * 1000);
+    }
+}
+
+//}
 /*===================================================
     START/STOP LOGIC
 ===================================================*/
+//{
 
 function settings() {
     Game.prefs['fancy'] = false;
@@ -415,7 +599,7 @@ function settings() {
 var shimmerBot;
 var clickerBot;
 var cookieBot;
-var debugBot;
+var marketBot;
 
 function start() {
     settings();
@@ -423,18 +607,14 @@ function start() {
     clickerBot = setInterval(click, 1000 / targetClicksPerSecond);
     shimmerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
-    if(debugging) {
-        debugBot = setInterval(debugLoop, 1000);
-    }
+    marketBot = setInterval(obtainAssets, 1000 * marketInterval);
 }
 
 function stop() {
     clearInterval(shimmerBot);
     clearInterval(clickerBot);
     clearInterval(cookieBot);
-    if(debugBot) {
-        debugBot = setInterval(debugLoop, 1000);
-    }
+    clearInterval(marketBot);
 }
 
 if(autostart) {
