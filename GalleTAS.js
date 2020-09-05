@@ -4,7 +4,7 @@
 ===================================================*/
 //{
 
-const autostart = true;
+const autostart = false;
 var targetClicksPerSecond = 10;
 var shimmerClicksPerSecond = 2; //Should be > 1 for "Fading Luck" Achievement
 var buysPerSecond = 2;
@@ -278,31 +278,34 @@ function wrapBuilding(id) {
 function findQuickest(objects) {
     let best;
     let soonestRepay = Number.MAX_VALUE;
+    let lowestPrice = Number.MAX_VALUE;
     for(let obj in objects) {
         obj = objects[obj];
         if(!obj.available()) continue;
         
         let repay = obj.getPrice() / obj.getCps();
-        if (repay < soonestRepay) {
+        if (repay < soonestRepay || (repay === soonestRepay && obj.getPrice() < lowestPrice)) {
             soonestRepay = repay;
             best = obj;
+            lowestPrice = obj.getPrice();
         }
     }
     return best;
 }
 
-function findBest(objects) {
+function findBest(objects, cookiesPs) {
     let best = findQuickest(objects);
-    let lowestPrice = best.getPrice();
+    let bestTimeTo = best.getPrice() / cookiesPs;
     for(let obj in objects) {
         obj = objects[obj];
-        if(!obj.available() || obj.getPrice() > lowestPrice) continue;
+        if(!obj.available()) continue;
         
-        let timeTo = (best.getPrice() - obj.getPrice()) / Game.cookiesPsRaw;
-        let repayTime = obj.getPrice() / obj.getCps();
-        if(repayTime < timeTo) {
+        let timeToObj = obj.getPrice() / cookiesPs;
+        let timeToBest = best.getPrice() / (cookiesPs + obj.getCps());
+        let totalTime = timeToObj + timeToBest;
+        if(totalTime < bestTimeTo) {
             best = obj;
-            lowestPrice = obj.getPrice();
+            bestTimeTo = timeToObj;
         }
     }
     return best;
@@ -317,22 +320,26 @@ function showBuy(obj, funding) {
     setSupportText(txt);
 }
 
-function buyOptimally() {
+function buyOptimally(wrappers, cookiesPs, cookieGetter) {
     let bought = 0;
     let optimal = {buy: (x) => {}};
     let funding = "";
     
     do {
         optimal.buy(1);
-        optimal = findBest(wrappers);
-        funding = fund(optimal.getPrice() - Game.cookies);
+        optimal = findBest(wrappers, cookiesPs);
+        funding = fund(optimal.getPrice() - cookieGetter());
         bought += 1;
-    } while(optimal.getPrice() <= Game.cookies && bought < 50);
+    } while(optimal.getPrice() <= cookieGetter() && bought < 50);
     showBuy(optimal, funding);
     
     if(!Game.HasAchiev("Just wrong") && Game.Upgrades["Kitten helpers"].bought) {
         bGrandma.sell(1);
     }
+}
+
+function buyBot() {
+    buyOptimally(wrappers, Game.cookiesPsRaw, () => Game.cookies);
 }
 
 //}
@@ -598,7 +605,7 @@ function settings() {
 
 var shimmerBot;
 var clickerBot;
-var cookieBot;
+var accquirementBot;
 var marketBot;
 
 function start() {
@@ -606,14 +613,14 @@ function start() {
     rebuildWrappers();
     clickerBot = setInterval(click, 1000 / targetClicksPerSecond);
     shimmerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
-    cookieBot = setInterval(buyOptimally, 1000 / buysPerSecond);
+    accquirementBot = setInterval(buyBot, 1000 / buysPerSecond);
     marketBot = setInterval(obtainAssets, 1000 * marketInterval);
 }
 
 function stop() {
     clearInterval(shimmerBot);
     clearInterval(clickerBot);
-    clearInterval(cookieBot);
+    clearInterval(accquirementBot);
     clearInterval(marketBot);
 }
 
