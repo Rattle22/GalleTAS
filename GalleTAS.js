@@ -255,7 +255,7 @@ function wrapBuilding(id) {
         return b.price;
     }
     wrapper.getCps = function() {
-        return withClickingBonus(b.cps(b) + fingersBonus());
+        return withClickingBonus(b.cps(b) + fingersBonus()) * prebuffMult();
     }
     wrapper.buy = function(bulk) {
         b.buy(bulk);

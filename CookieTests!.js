@@ -1,3 +1,12 @@
+var doBeautify = true;
+function beaut(number) {
+    return doBeautify ? Beautify(number) : number;
+}
+
+function round(num) {
+    return Math.round(num * 1000) / 1000;
+}
+
 function wrap(name, cps, cost, available, buyFunc = () => {}){
     let wrapper = {};
     wrapper.getName = () => name;
@@ -6,6 +15,25 @@ function wrap(name, cps, cost, available, buyFunc = () => {}){
     wrapper.available = () => available;
     wrapper.buy = buyFunc;
     return wrapper;
+}
+
+function wipe() {
+    Game.HardReset(3);
+    Game.CalculateGains();
+}
+
+function addObject(obj, amount = 1) {
+    if(!Game.Objects[obj]) throw new Expection("Unknown object " + obj);
+    Game.Objects[obj].amount += amount;
+    Game.CalculateGains();
+}
+
+function addUpgrade(up, amount = 1) {
+    if(!Game.Upgrades[up]) throw new Expection("Unknown upgrade " + up);
+    if(Game.Upgrades[up].owned) throw new Expection("Upgrade already owned: " + up);
+    if(Game.Upgrades[up].pool === "debug") return;
+    Game.Upgrades[up].earn();
+    Game.CalculateGains();
 }
 
 var tests = {
@@ -81,6 +109,61 @@ BUY LOGIC TESTS
     },
 
 //}
+/*===================================================
+    OBJECT WRAPPER TESTS
+===================================================*/
+//{
+    objectWrappersNoUpgrades: (assert) => {
+        prepareEnv = () => {
+            wipe();
+            addUpgrade("\"egg\""); // Makes sure that cps based calculations do not run into 0 issues.
+        }
+        
+        for(let b in Game.Objects) {
+            prepareEnv();
+            let wrapped = wrapBuilding(Game.Objects[b].id);
+            let predictedCps = wrapped.getCps() + Game.cookiesPs;
+
+            addObject(b, 1);
+            
+            assert(Game.cookiesPs === predictedCps, "CPS unequal.\nPredicted: " + beaut(predictedCps) + "\nActual: " + beaut(Game.cookiesPs));
+        }
+    },
+    objectWrappersCookieUpgrade: (assert) => {
+        prepareEnv = () => {
+            wipe();
+            addUpgrade("\"egg\""); // Makes sure that cps based calculations do not run into 0 issues.
+            addUpgrade("Cosmic chocolate butter biscuit");
+        }
+        
+        for(let b in Game.Objects) {
+            prepareEnv();
+            let wrapped = wrapBuilding(Game.Objects[b].id);
+            let predictedCps = wrapped.getCps() + Game.cookiesPs;
+
+            addObject(b, 1);
+            
+            assert(round(Game.cookiesPs) === round(predictedCps), "CPS unequal.\nPredicted: " + beaut(predictedCps) + "\nActual: " + beaut(Game.cookiesPs));
+        }
+    },
+    /* Loooooong way to go for this one
+    objectWrappersAllUpgrades: (assert) => {
+        prepareEnv = () => {
+            wipe();
+            for(let up in Game.Upgrades)
+                addUpgrade(up);
+        }
+        
+        for(let b in Game.Objects) {
+            prepareEnv();
+            let wrapped = wrapBuilding(Game.Objects[b].id);
+            let predictedCps = wrapped.getCps();
+
+            addObject(b, 1);
+            
+            assert(Game.cookiesPs === predictedCps, "CPS unequal.\nPredicted: " + beaut(predictedCps) + "\nActual: " + beaut(Game.cookiesPs));
+        }
+    },*/
 }
 
 function runTest(testname, test){
@@ -98,15 +181,18 @@ function runTest(testname, test){
     if(messages.length > 0){
         console.error(testname + " failed with " + messages.length + " errors:");
         messages.forEach(msg => console.error(msg));
-    } else console.info(testname + " passed!");
+        return false;
+    } else {
+        console.info(testname + " passed!")
+        return true;
+    };
 }
 
-function runTests() {
-    Game.HardReset(3);
+function runTests(stopOnError) {
     for(test in tests){
+        wipe();
         console.info("============== RUNNING TEST " + test + " ==============");
-        runTest(test, tests[test]);
-        Game.HardReset(3);
+        if(!runTest(test, tests[test]) && stopOnError) return;
     }
 }
 
