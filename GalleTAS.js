@@ -3,15 +3,25 @@
     CONFIGURATION
 ===================================================*/
 //{
+    
+/* Rules for this TAS:
+ * No more than 17 clicks a second. This is the requirement for uncanny clicker, which is human-reachable, but not sustainable (giving the bot an edge) and does not invalidate most of the game.
+ * Heralds are to be set to its highest value of 100 upon starting the game. This prevents this quasi-random non-gameplay-factor to influence the game without making related upgrades useless.
+ * Any Action not forbidden by these rules is allowed if there is a combination of key presses/clicks that allow a human player to perform said Action.
+    - In particular, this allows buying and selling arbitrary amounts of buildings and stocks within the same action.
+ * The run starts as soon as the first cookie is earned.
+ */
 
 const autostart = false;
-var targetClicksPerSecond = 10;
+var targetClicksPerSecond = 17;
 var shimmerClicksPerSecond = 2; //Should be > 1 for "Fading Luck" Achievement
 var buysPerSecond = 2;
-var marketInterval = 1; // In seconds.
+var marketInterval = 10; // In seconds.
+var gardenInterval = 60; // In seconds.
 
 function clicksPerSecond() {
-    return targetClicksPerSecond * Game.HasAchiev("Neverclick");
+    if(!Game.HasAchiev("Neverclick") && Game.cookieClicks <= 15) return 0;
+    return targetClicksPerSecond ;
 }
 
 //}
@@ -77,6 +87,10 @@ const fingers = [
     Game.Upgrades["Nonillion fingers"],
 ];
 
+function callIfFunction(val, arg) {
+    return (typeof(val) === 'function' ? val(arg) : val);
+}
+
 function prebuffMult() {
     let noMultCps = Game.cookiesPs / Game.globalCpsMult; // Divide both normal boni and buffs out
     return Game.unbuffedCps / noMultCps; // Only the non buff mult remains
@@ -102,19 +116,15 @@ function click() {
     } else if(!Game.HasAchiev("Olden days")) {
         $("#logButton").click();
         $("#menu").children[2].children[0].click();
-    } else if(Game.HasAchiev("Neverclick") || Game.cookieClicks < 15) {
+    } else if(Game.HasAchiev("Neverclick") || Game.cookieClicks < 15 || Game.cookieClicks > 15) {
         Game.ClickCookie();
-        if(!Game.HasAchiev("Uncanny Clicker")) {
-            for(let i = 0; i < 17 - targetClicksPerSecond; i++) {
-                Game.ClickCookie();
-            }
-        }
+        //Uncanny clicker is achieved automatically.
     }
 }
         
 function withClickingBonus(cps) {
     let bonus = mouses.reduce((total, mouse) => total + mouse.bought, 0);
-    return cps * (1 + 0.01 * bonus);
+    return cps * (1 + 0.01 * bonus * clicksPerSecond());
 }
 
 //}
@@ -123,18 +133,32 @@ function withClickingBonus(cps) {
 ===================================================*/
 //{
 
+function isCookie(up) {
+    return up.pool === "cookie";
+}
 function getCookieCpsGetter(cookie) {
+    var bonus = 0;
+    if(cookie.name === "Elderwort biscuits") bonus = bGrandma.storedTotalCps * 0.02 * (1 + 0.01 * cookie.power);
     return () => {
-        return withClickingBonus(0.01 * cookie.power * Game.cookiesPsRaw);
+        let cookiePowerBonus = 0.01 * Game.cookiesPsRaw * callIfFunction(cookie.power, cookie);
+        return cookiePowerBonus + bonus;
     };
+}
+
+function isGrandma(up) {
+    return up.name.includes("grandmas");
 }
 
 function getGrandmaCpsGetter(grandma) {
     return () => {
-        let tieBuilding = grandma.buildingTie; 
-        let bTieCps = tieBuilding.storedCps * 0.01 * bGrandma.amount / (tieBuilding.id - 2) ;
-        return withClickingBonus(bGrandma.storedTotalCps + bTieCps);
+        let tieBuilding = grandma.buildingTie;
+        let bTieCps = tieBuilding.storedCps * 0.01 * bGrandma.amount / (tieBuilding.id - 1);
+        return withClickingBonus(bGrandma.storedTotalCps + bTieCps);// * prebuffMult();
     };
+}
+
+function isKitten(up) {
+    return up.name.includes("Kitten");
 }
 
 function getKittenCpsGetter(kitten) {
@@ -158,6 +182,10 @@ function getKittenCpsGetter(kitten) {
     };
 }
 
+function isMouse(up) {
+    return up.name.includes("mouse");
+}
+
 function getMouseCpsGetter(cookie) {
     return () => {
         return 0.01 * clicksPerSecond() * Game.cookiesPsRaw;
@@ -168,34 +196,42 @@ function fingerPower(finger) {
     return 0.05 * Math.pow(10, finger.tier - 4) + (finger.tier === 4 ? 0.05 : 0);
 }
 
+function isFinger(up) {
+    return up.name.includes(" fingers"); //Space to exclude Ladyfingers
+}
+
 function getFingersCpsGetter(finger) {
     return () => {
         let bonus = fingerPower(finger);
         let buildingCount = buildings.reduce((total, building) => total + building.amount, 0);
         buildingCount -= bCursor.amount;
-        return buildingCount * bonus * bCursor.amount;
+        return withClickingBonus(buildingCount * bonus * bCursor.amount) * prebuffMult() + buildingCount * bonus * clicksPerSecond();
     };
+}
+
+function isSimple(up) {
+    return up.desc.includes(" are <b>twice</b> as efficient.") || up.desc.includes(" are twice as productive.");
 }
 
 function getSimpleUpgradeCpsGetter(simple) {
     if(simple.id <= 2) { //The first three upgrades have no building tie...
         return () => {
             let cursorCps = bCursor.storedTotalCps;
-            let buildingBonus = withClickingBonus(cursorCps) * 2 - cursorCps;
+            let buildingBonus = (withClickingBonus(cursorCps) * 2 - cursorCps) * prebuffMult();
             
             let mouseCpsBonus = Game.cookiesPsRaw * 0.01 * mouses.reduce((total, mouse) => total + mouse.bought, 0);
             let clickingBonus = (Game.computedMouseCps - mouseCpsBonus) * clicksPerSecond();
             
-            return clickingBonus + buildingBonus; //...and improve clicks
+            return clickingBonus + buildingBonus; //...and improve clicks...
         }
+    } else if(simple.buildingTie === 0) { //...except for ritual rolling pins.
+        return () => { 
+            return withClickingBonus(bGrandma.storedTotalCps) * prebuffMult();
+        };
     }
     return () => {
-        return withClickingBonus(simple.buildingTie.storedTotalCps);
+        return withClickingBonus(simple.buildingTie.storedTotalCps) * prebuffMult();
     };
-}
-
-function isSimpleUpgrade(up) {
-    return up.desc.includes(" are <b>twice</b> as efficient.") || up.desc.includes(" are twice as productive.");
 }
 
 function wrapUpgrade(id) {
@@ -209,30 +245,26 @@ function wrapUpgrade(id) {
         return "Upgrade: " + u.name;
     }
     
-    if(u.pool == "cookie") {
+    if(isCookie(u)) {
         wrapper.getCps = getCookieCpsGetter(u);
     }
-    else if(u.name.includes("grandmas")) {
+    else if(isGrandma(u)) {
         wrapper.getCps = getGrandmaCpsGetter(u);
     }
-    else if(u.name.includes("Kitten")) {
+    else if(isKitten(u)) {
         wrapper.getCps = getKittenCpsGetter(u);
     }
-    else if(u.name.includes("mouse")) {
+    else if(isMouse(u)) {
         wrapper.getCps = getMouseCpsGetter(u);
     }
-    else if(u.name.includes(" fingers")) { //Space to exclude Ladyfingers
+    else if(isFinger(u)) {
         wrapper.getCps = getFingersCpsGetter(u);
     }
-    else if(isSimpleUpgrade(u)) { // Must come after grandma upgrade check due to simpleUpgrade implementation.
+    else if(isSimple(u)) { // Must come after grandma upgrade check due to isSimple implementation.
         wrapper.getCps = getSimpleUpgradeCpsGetter(u);
-    }
+    } else return;
     
-    if(!wrapper.getCps) {
-        wrapper.getCps = () => 0;
-    }
-    
-    wrapper.available = function() { return u.unlocked && !u.bought && Game.HasAchiev("Hardcore"); };
+    wrapper.available = function() { return u.unlocked && !u.bought && (Game.UpgradesOwned > 0 || Game.HasAchiev("Hardcore")); };
     wrapper.canBuyAgain = false;
     return wrapper;
 }
@@ -530,6 +562,32 @@ function obtainAssets() {
 
 //}
 /*===================================================
+    GARDEN
+===================================================*/
+//{
+
+function harvestNearDead() {
+    var minigame = Game.Objects["Farm"].minigame;
+    if(!minigame) return;
+    for (var y=0;y<6;y++) {
+        for (var x=0;x<6;x++) {
+            let tile = minigame.plot[y][x];
+            let plant = minigame.plantsById[tile[0] - 1];
+            if(!plant) continue;
+            let age = tile[1];
+            if(age + plant.ageTick + plant.ageTickR > 100) {
+            minigame.harvest(x,y);
+            }
+        }
+    }
+}
+
+function manageGarden() {
+    harvestNearDead();
+}
+
+//}
+/*===================================================
     DEBUG FUNCTIONS
 ===================================================*/
 //{
@@ -603,25 +661,23 @@ function settings() {
     Game.volume = 0;
 }
 
-var shimmerBot;
-var clickerBot;
-var accquirementBot;
-var marketBot;
+var bots = {};
 
 function start() {
     settings();
     rebuildWrappers();
-    clickerBot = setInterval(click, 1000 / targetClicksPerSecond);
-    shimmerBot = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
-    accquirementBot = setInterval(buyBot, 1000 / buysPerSecond);
-    marketBot = setInterval(obtainAssets, 1000 * marketInterval);
+    bots["clickerBot"] = setInterval(click, 1000 / targetClicksPerSecond);
+    bots["shimmerBot"] = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
+    bots["accquirementBot"] = setInterval(buyBot, 1000 / buysPerSecond);
+    bots["marketBot"] = setInterval(obtainAssets, 1000 * marketInterval);
+    bots["gardenBot"] = setInterval(manageGarden, 1000 * gardenInterval);
 }
 
 function stop() {
-    clearInterval(shimmerBot);
-    clearInterval(clickerBot);
-    clearInterval(accquirementBot);
-    clearInterval(marketBot);
+    for(let bot in bots) {
+        clearInterval(bots[bot]);
+    }
+    bots = {};
 }
 
 if(autostart) {
