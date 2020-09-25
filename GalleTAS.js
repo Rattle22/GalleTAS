@@ -153,7 +153,7 @@ function getGrandmaCpsGetter(grandma) {
     return () => {
         let tieBuilding = grandma.buildingTie;
         let bTieCps = tieBuilding.storedCps * 0.01 * bGrandma.amount / (tieBuilding.id - 1);
-        return withClickingBonus(bGrandma.storedTotalCps + bTieCps);// * prebuffMult();
+        return withClickingBonus(bGrandma.storedTotalCps + bTieCps) * prebuffMult();
     };
 }
 

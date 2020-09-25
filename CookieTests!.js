@@ -40,7 +40,7 @@ function addObject(obj, amount = 1) {
     Game.CalculateGains();
 }
 
-function addUpgrade(up, amount = 1) {
+function addUpgrade(up) {
     if(!Game.Upgrades[up]) throw "Unknown upgrade " + up;
     if(Game.Upgrades[up].owned) throw "Upgrade already owned: " + up;
     if(Game.Upgrades[up].pool === "debug") return;
@@ -74,12 +74,12 @@ env.withAdequateBuilding = (cps) => {
     }
     return env;
 };
-env.withBuilding = (building) => {
+env.withBuilding = (building, amount = 1) => {
     if(!building) { //The non building tie upgrades are either cursors, or ritual rolling pins.
-        addObject("Cursor");
-        addObject("Grandma");
+        addObject("Cursor", amount);
+        addObject("Grandma", amount);
     } else {
-        addObject(building.name);
+        addObject(building.name, amount);
     }
     return env;
 };
@@ -277,12 +277,13 @@ BUY LOGIC TESTS
     },
     grandmaUpgradeWrappers: (assert) => {
         for(let up in Game.Upgrades) {
-            if(!isCookie(Game.Upgrades[up])) continue;
+            if(!isGrandma(Game.Upgrades[up])) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withAdequateBuilding(3000)
+                .withBuilding(bGrandma, 100)
+                .withBuilding(Game.Upgrades[up].buildingTie)
                 .build();
             let predictedBonus = wrapped.getCps();
             let cCps = currentCps();
@@ -295,12 +296,13 @@ BUY LOGIC TESTS
     },
     grandmaUpgradeWrappersWithGlobalMult: (assert) => {        
         for(let up in Game.Upgrades) {
-            if(!isCookie(Game.Upgrades[up])) continue;
+            if(!isGrandma(Game.Upgrades[up])) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
                 .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withBuilding(bGrandma, 100)
                 .withBuilding(Game.Upgrades[up].buildingTie)
                 .build();
             let predictedBonus = wrapped.getCps();
