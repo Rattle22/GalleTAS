@@ -314,6 +314,43 @@ BUY LOGIC TESTS
             assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
         }
     },
+    mouseUpgradeWrappers: (assert) => {
+        for(let up in Game.Upgrades) {
+            if(!isMouse(Game.Upgrades[up])) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    mouseUpgradeWrappersWithGlobalMult: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isMouse(Game.Upgrades[up])) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
     /* Loooooong way to go for this one
     objectWrappersAllUpgrades: (assert) => {
         prepareEnv = () => {
