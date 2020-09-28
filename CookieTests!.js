@@ -321,7 +321,10 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withAdequateBuilding(3000)
+                .withBuilding(bCursor, 55)
+                .withBuilding(bGrandma, 10)
+                .withAdequateBuilding(bFarm, 10)
+                .withAdequateBuilding(bFactory, 3)
                 .build();
             let predictedBonus = wrapped.getCps();
             let cCps = currentCps();
@@ -335,6 +338,43 @@ BUY LOGIC TESTS
     mouseUpgradeWrappersWithGlobalMult: (assert) => {        
         for(let up in Game.Upgrades) {
             if(!isMouse(Game.Upgrades[up])) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    fingerUpgradeWrappers: (assert) => {
+        for(let up in Game.Upgrades) {
+            if(!isFinger(Game.Upgrades[up])) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    fingerUpgradeWrappersWithGlobalMult: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isFinger(Game.Upgrades[up])) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             

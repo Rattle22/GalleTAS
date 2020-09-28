@@ -55,6 +55,8 @@ const buildings = [
 
 const bCursor = Game.ObjectsById[0];
 const bGrandma = Game.ObjectsById[1];
+const bFarm = Game.ObjectsById[2];
+const bFactory = Game.ObjectsById[3];
 const bBank = Game.ObjectsById[5];
 const bAlchemyLab = Game.ObjectsById[9];
 
