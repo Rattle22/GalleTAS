@@ -93,6 +93,10 @@ function initEnv(){
     return env;
 }
 
+function isDifferent(up) {
+    return up.pool === "prestige" || up.pool === "debug";
+}
+
 var tests = {
 /*===================================================
 BUY LOGIC TESTS
@@ -203,7 +207,7 @@ BUY LOGIC TESTS
 //{
     simpleUpgradeWrappers: (assert) => {        
         for(let up in Game.Upgrades) {
-            if(isGrandma(Game.Upgrades[up]) || !isSimple(Game.Upgrades[up])) continue;
+            if(isGrandma(Game.Upgrades[up]) || !isSimple(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -221,7 +225,7 @@ BUY LOGIC TESTS
     },
     simpleUpgradeWrappersWithGlobalMult: (assert) => {        
         for(let up in Game.Upgrades) {
-            if(isGrandma(Game.Upgrades[up]) || !isSimple(Game.Upgrades[up])) continue;
+            if(isGrandma(Game.Upgrades[up]) || !isSimple(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -240,7 +244,7 @@ BUY LOGIC TESTS
     },
     cookieUpgradeWrappers: (assert) => {
         for(let up in Game.Upgrades) {
-            if(!isCookie(Game.Upgrades[up])) continue;
+            if(!isCookie(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -258,7 +262,7 @@ BUY LOGIC TESTS
     },
     cookieUpgradeWrappersWithGlobalMult: (assert) => {        
         for(let up in Game.Upgrades) {
-            if(!isCookie(Game.Upgrades[up])) continue;
+            if(!isCookie(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -277,7 +281,7 @@ BUY LOGIC TESTS
     },
     grandmaUpgradeWrappers: (assert) => {
         for(let up in Game.Upgrades) {
-            if(!isGrandma(Game.Upgrades[up])) continue;
+            if(!isGrandma(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -296,7 +300,7 @@ BUY LOGIC TESTS
     },
     grandmaUpgradeWrappersWithGlobalMult: (assert) => {        
         for(let up in Game.Upgrades) {
-            if(!isGrandma(Game.Upgrades[up])) continue;
+            if(!isGrandma(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -316,7 +320,7 @@ BUY LOGIC TESTS
     },
     mouseUpgradeWrappers: (assert) => {
         for(let up in Game.Upgrades) {
-            if(!isMouse(Game.Upgrades[up])) continue;
+            if(!isMouse(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -337,7 +341,7 @@ BUY LOGIC TESTS
     },
     mouseUpgradeWrappersWithGlobalMult: (assert) => {        
         for(let up in Game.Upgrades) {
-            if(!isMouse(Game.Upgrades[up])) continue;
+            if(!isMouse(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -356,7 +360,7 @@ BUY LOGIC TESTS
     },
     fingerUpgradeWrappers: (assert) => {
         for(let up in Game.Upgrades) {
-            if(!isFinger(Game.Upgrades[up])) continue;
+            if(!isFinger(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
@@ -374,7 +378,44 @@ BUY LOGIC TESTS
     },
     fingerUpgradeWrappersWithGlobalMult: (assert) => {        
         for(let up in Game.Upgrades) {
-            if(!isFinger(Game.Upgrades[up])) continue;
+            if(!isFinger(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    kittenUpgradeWrappers: (assert) => {
+        for(let up in Game.Upgrades) {
+            if(!isKitten(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    kittenUpgradeWrappersWithGlobalMult: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isKitten(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
             let wrapped = wrapUpgrade(up);
             if(!wrapped) throw up + " not handled!";
             
