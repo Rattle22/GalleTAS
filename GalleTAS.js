@@ -95,7 +95,8 @@ function callIfFunction(val, arg) {
 
 function prebuffMult() {
     let noMultCps = Game.cookiesPs / Game.globalCpsMult; // Divide both normal boni and buffs out
-    return Game.unbuffedCps / noMultCps; // Only the non buff mult remains
+	let mult = Game.unbuffedCps / noMultCps; // Only the non buff mult remains
+	return isNaN(mult) ? 1 : mult;
 }
 
 //}
@@ -138,6 +139,7 @@ function withClickingBonus(cps) {
 function isCookie(up) {
     return up.pool === "cookie";
 }
+
 function getCookieCpsGetter(cookie) {
     var bonus = 0;
     if(cookie.name === "Elderwort biscuits") bonus = bGrandma.storedTotalCps * 0.02 * (1 + 0.01 * cookie.power);
@@ -211,6 +213,21 @@ function getFingersCpsGetter(finger) {
     };
 }
 
+function isHeavenly(up) {
+	return up.id >= 129 && up.id < 133;
+}
+
+function getHeavenlyCpsGetter(heavenly) {
+	let bonus = (mult) => {
+		return () => {
+			return Game.cookiesPsRaw * mult * Game.prestige * 0.01;
+		};
+	}
+	if(heavenly.id == 129) return bonus(0.05);
+	if(heavenly.id == 130) return bonus(0.2);
+	return bonus(0.25);
+}
+
 function isSimple(up) {
     return up.desc.includes(" are <b>twice</b> as efficient.") || up.desc.includes(" are twice as productive.");
 }
@@ -264,6 +281,9 @@ function wrapUpgrade(id) {
     }
     else if(isSimple(u)) { // Must come after grandma upgrade check due to isSimple implementation.
         wrapper.getCps = getSimpleUpgradeCpsGetter(u);
+    }
+    else if(isHeavenly(u)) {
+        wrapper.getCps = getHeavenlyCpsGetter(u);
     } else return;
     
     wrapper.available = function() { return u.unlocked && !u.bought && (Game.UpgradesOwned > 0 || Game.HasAchiev("Hardcore")); };
