@@ -14,7 +14,7 @@ function fuzzyEq(left, right) {
 }
 
 function currentCps() {
-    return Game.cookiesPs + Game.computedMouseCps * targetClicksPerSecond;
+    return withShimmerBonus(Game.cookiesPs + Game.computedMouseCps * targetClicksPerSecond);
 }
 
 function wrap(name, cps, cost, available, buyFunc = () => {}){
@@ -65,7 +65,8 @@ env.custom = (c) => {
     c();
     return env;
 };
-env.withGlobalMult = (useOtherCookie) => {
+var defaultGlobal = "Cosmic chocolate butter biscuit";
+env.withGlobalMult = (useOtherCookie = false) => {
     if(useOtherCookie) addUpgrade("Plain cookies");
     else addUpgrade("Cosmic chocolate butter biscuit");
     return env;
@@ -92,13 +93,19 @@ env.withPrestige = (amount = 75) => {
     addPrestige(amount);
     return env;
 };
+var defaultMouse = "Plastic mouse";
+env.withMouse = (useOtherMouse = false) => {
+    if(!useOtherMouse) addUpgrade("Plastic mouse");
+    else addUpgrade("Iron mouse");
+    return env;
+};
 env.build = () => {
     Game.CalculateGains();
 }
 
-function initEnv(){
+function initEnv(noEgg = false){
     wipe();
-    addUpgrade("\"egg\""); // Makes sure that cps based calculations do not run into 0 division issues.
+    if(!noEgg) addUpgrade("\"egg\""); // Makes sure that cps based calculations do not run into 0 division issues.
     return env;
 }
 
@@ -195,10 +202,23 @@ BUY LOGIC TESTS
             assert(fuzzyEq(currentCps(), predCps), "CPS unequal for object " + b + ".\nPred: " + beaut(predCps) + "\nActl: " + beaut(currentCps()));
         }
     },
-    objectWrappersGlobalCpsMult: (assert) => {        
+    objectWrappersWithGlobalMult: (assert) => {        
         for(let b in Game.Objects) {
             initEnv()
                 .withGlobalMult()
+                .build();
+            let wrapped = wrapBuilding(Game.Objects[b].id);
+            let predCps = wrapped.getCps() + currentCps();
+
+            addObject(b, 1);
+            
+            assert(fuzzyEq(currentCps(), predCps), "CPS unequal for object " + b + ".\nPred: " + beaut(predCps) + "\nActl: " + beaut(currentCps()));
+        }
+    },
+    objectWrappersWithMouse: (assert) => {        
+        for(let b in Game.Objects) {
+            initEnv()
+                .withMouse()
                 .build();
             let wrapped = wrapBuilding(Game.Objects[b].id);
             let predCps = wrapped.getCps() + currentCps();
@@ -251,6 +271,25 @@ BUY LOGIC TESTS
             assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
         }
     },
+    simpleUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(isGrandma(Game.Upgrades[up]) || !isSimple(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withBuilding(Game.Upgrades[up].buildingTie)
+                .withMouse()
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
     cookieUpgradeWrappers: (assert) => {
         for(let up in Game.Upgrades) {
             if(!isCookie(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
@@ -276,7 +315,26 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withGlobalMult(up === defaultGlobal)
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    cookieUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isCookie(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withMouse()
                 .withAdequateBuilding(3000)
                 .build();
             let predictedBonus = wrapped.getCps();
@@ -314,7 +372,27 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withGlobalMult()
+                .withBuilding(bGrandma, 100)
+                .withBuilding(Game.Upgrades[up].buildingTie)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    grandmaUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isGrandma(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withMouse()
                 .withBuilding(bGrandma, 100)
                 .withBuilding(Game.Upgrades[up].buildingTie)
                 .build();
@@ -355,7 +433,26 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withGlobalMult()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    mouseUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isMouse(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withMouse(up === defaultMouse)
                 .withAdequateBuilding(3000)
                 .build();
             let predictedBonus = wrapped.getCps();
@@ -392,7 +489,26 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withGlobalMult()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    fingerUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isFinger(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withMouse()
                 .withAdequateBuilding(3000)
                 .build();
             let predictedBonus = wrapped.getCps();
@@ -429,7 +545,26 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withGlobalMult()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    kittenUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isKitten(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withMouse()
                 .withAdequateBuilding(3000)
                 .build();
             let predictedBonus = wrapped.getCps();
@@ -467,7 +602,27 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withGlobalMult()
+                .withAdequateBuilding(3000)
+                .withPrestige()
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    prestigeUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isHeavenly(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withMouse()
                 .withAdequateBuilding(3000)
                 .withPrestige()
                 .build();
@@ -505,7 +660,82 @@ BUY LOGIC TESTS
             if(!wrapped) throw up + " not handled!";
             
             initEnv()
-                .withGlobalMult(up === "Cosmic chocolate butter biscuit")
+                .withGlobalMult()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    prestigeUpgradeWrappersWithMouseNoPrestige: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isHeavenly(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv()
+                .withMouse()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    eggUpgradeWrappers: (assert) => {
+        for(let up in Game.Upgrades) {
+            if(!isEgg(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv(up === "\"egg\"")
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    eggUpgradeWrappersWithGlobalMult: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isEgg(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv(up === "\"egg\"")
+                .withGlobalMult()
+                .withAdequateBuilding(3000)
+                .build();
+            let predictedBonus = wrapped.getCps();
+            let cCps = currentCps();
+
+            addUpgrade(up);
+            let actBonus = currentCps() - cCps;
+            
+            assert(fuzzyEq(actBonus, predictedBonus), "CPS unequal for upgrade " + up + ".\nPred: " + beaut(predictedBonus) + "\nActl: " + beaut(actBonus));
+        }
+    },
+    eggUpgradeWrappersWithMouse: (assert) => {        
+        for(let up in Game.Upgrades) {
+            if(!isEgg(Game.Upgrades[up]|| isDifferent(Game.Upgrades[up]))) continue;
+            let wrapped = wrapUpgrade(up);
+            if(!wrapped) throw up + " not handled!";
+            
+            initEnv(up === "\"egg\"")
+                .withMouse()
                 .withAdequateBuilding(3000)
                 .build();
             let predictedBonus = wrapped.getCps();
@@ -571,4 +801,4 @@ function runTests(stopOnError) {
     }
 }
 
-//runTests(false);
+runTests(false);
