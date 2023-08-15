@@ -108,9 +108,21 @@ function withAllBoni(cps) {
     CLICK LOGIC
 ===================================================*/
 //{
+  
+var leftSideOldHeight = Game.LeftBackground.canvas.height;
+var gotClickBasedAchievements = false;
 
 function click() {
-    if(!Game.HasAchiev("Tabloid addiction")) {
+    if(gotClickBasedAchievements) {
+      Game.ClickCookie()
+      return;
+    }
+    
+    if(!Game.HasAchiev("Neverclick") && Game.cookieClicks < 15) {
+        Game.ClickCookie();
+    } else if(Game.cookieClicks === 15 && buildings[0].amount == 0) {
+      buildings[0].buy()
+    } else if(!Game.HasAchiev("Tabloid addiction")) {
         Game.tickerL.click();
     } else if(!Game.HasAchiev("What\'s in a name")) {
         $("#bakeryName").click();
@@ -122,10 +134,16 @@ function click() {
         Game.ClickTinyCookie();
     } else if(!Game.HasAchiev("Olden days")) {
         $("#logButton").click();
-        $("#menu").children[2].children[0].click();
-    } else if(Game.HasAchiev("Neverclick") || Game.cookieClicks < 15 || Game.cookieClicks > 15) {
+        $("#oldenDays").children[0].click();
+    } else if(!Game.HasAchiev("Cookie-dunker") && Game.LeftBackground.canvas.height === leftSideOldHeight) {
+      Game.LeftBackground.canvas.height = 1;
+    } else if(Game.cookieClicks > 15 || Game.HasAchiev("Neverclick")) {
         Game.ClickCookie();
-        //Uncanny clicker is achieved automatically.
+        gotClickBasedAchievements = true;
+    }
+    
+    if(Game.HasAchiev("Cookie-dunker") && Game.LeftBackground.canvas.height === 1) {
+      Game.LeftBackground.canvas.height = leftSideOldHeight;
     }
 }
         
@@ -788,7 +806,7 @@ function manageGarden() {
 
 //}
 /*===================================================
-    DEBUG FUNCTIONS
+    DEBUG AND INFO FUNCTIONS
 ===================================================*/
 //{
 
@@ -833,6 +851,37 @@ function toggleDebugMarket(everyX = 5) {
     }
 }
 
+var originalUpdateMenu = Game.updateMenu;
+
+function updateMenuStatsInject() {
+  originalUpdateMenu();
+ if (Game.onMenu=='stats') {
+   
+ }
+}
+
+function saveProgress() {
+  text = Game.WriteSave(1);
+  date = new Date();
+  dateString = date.getDate() + " "
+                + (date.getMonth()+1)  + " "
+                + date.getFullYear() + " "
+                + date.getHours() + " "
+                + date.getMinutes() + " "
+                + date.getSeconds();
+  filename = 'ratbakery-' + dateString + '.cookiesave'
+
+  var blob = new Blob([text], {type: 'text'}),
+      e    = document.createEvent('MouseEvents'),
+      a    = document.createElement('a')
+
+  a.download = filename
+  a.href = window.URL.createObjectURL(blob)
+  a.dataset.downloadurl =  ['cookiesave', a.download, a.href].join(':')
+  e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null)
+  a.dispatchEvent(e)
+}
+
 //}
 /*===================================================
     START/STOP LOGIC
@@ -864,6 +913,7 @@ function settings() {
 var bots = {};
 
 function start() {
+    injectWipe();
     settings();
     rebuildWrappers();
     bots["clickerBot"] = setInterval(click, 1000 / targetClicksPerSecond);
@@ -874,10 +924,27 @@ function start() {
 }
 
 function stop() {
+    gotClickBasedAchievements = false;
     for(let bot in bots) {
         clearInterval(bots[bot]);
     }
     bots = {};
+}
+
+var originalWipe = Game.HardReset;
+
+function restartOnWipeInject(bypass) {
+  if(bypass && bypass != 1) {
+    stop();
+  }
+  originalWipe(bypass);
+  if(bypass && bypass != 1) {
+    start();
+  }
+}
+
+function injectWipe() {
+  Game.HardReset = restartOnWipeInject;
 }
 
 if(autostart) {
