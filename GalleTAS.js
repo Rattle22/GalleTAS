@@ -9,7 +9,7 @@
  * Heralds are to be set to its highest value of 100 upon starting the game. This prevents this quasi-random non-gameplay-factor to influence the game without making related upgrades useless.
  * Any Action not forbidden by these rules is allowed if there is a combination of key presses/clicks that allow a human player to perform said Action.
     - In particular, this allows buying and selling arbitrary amounts of buildings and stocks within the same action.
- * The run starts as soon as the first cookie is earned.
+ * The run starts upon executing the HardReset function, i.e. wiping the save.
  */
 
 const autostart = false;
