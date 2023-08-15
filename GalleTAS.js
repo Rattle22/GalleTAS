@@ -464,8 +464,17 @@ function wrapBuilding(id) {
 ===================================================*/
 //{
 
-// The quickest is that which pays for itself after the shortest amount of time.
-function findQuickest(objects) {
+var nextCostEffective;
+var totalCostEffectiveTimeToBuy;
+
+var nextBuy;
+var totalTimeToBuy;
+var remainingTimeToBuy;
+var timeSave;
+var fundingForNextBuy;
+
+// The costEffective is that which pays for itself after the shortest amount of time.
+function findCostEffective(objects) {
     let best;
     let soonestRepay = Number.MAX_VALUE;
     let lowestPrice = Number.MAX_VALUE;
@@ -484,7 +493,8 @@ function findQuickest(objects) {
 }
 
 function findBest(objects, cookiesPs) {
-    let best = findQuickest(objects);
+    let costEffective = findCostEffective(objects);
+    let best = costEffective;
     let bestTimeTo = best.getPrice() / cookiesPs;
     for(let obj in objects) {
         obj = objects[obj];
@@ -498,16 +508,15 @@ function findBest(objects, cookiesPs) {
             bestTimeTo = timeToObj;
         }
     }
+            
+    nextCostEffective = costEffective;
+    totalCostEffectiveTimeToBuy = costEffective.getPrice() / cookiesPs;
+    
+    nextBuy = best;
+    timeToBuy = best.getPrice() / cookiesPs;
+    remainingTimeToBuy = (best.getPrice() - Game.cookies) / cookiesPs;
+    timeSave = totalCostEffectiveTimeToBuy - (costEffective.getPrice() / (cookiesPs + best.getCps()));
     return best;
-}
-
-function showBuy(obj, funding) {
-    let txt = "Buying " + obj.getName() +
-    " for " + Beautify(obj.getPrice()) +
-    " at " + Beautify(obj.getPrice() / obj.getCps()) +
-    " cookies per CPS!" + 
-    "\n" + funding;
-    setSupportText(txt);
 }
 
 function buyOptimally(wrappers, cookiesPs, cookieGetter) {  
@@ -521,7 +530,7 @@ function buyOptimally(wrappers, cookiesPs, cookieGetter) {
         funding = fund(optimal.getPrice() - cookieGetter());
         bought += 1;
     } while(optimal.getPrice() <= cookieGetter() && bought < 50);
-    showBuy(optimal, funding);
+    fundingForNextBuy = funding;
     
     if(!Game.HasAchiev("Just wrong") && Game.Upgrades["Kitten helpers"].bought) {
         bGrandma.sell(1);
@@ -538,27 +547,97 @@ function buyBot() {
 ===================================================*/
 //{
 
-const supportComment = $('.supportComment');
-supportComment.style.whiteSpace = "pre-line";
+var originalUpdateMenu = Game.UpdateMenu;
 
-function setSupportText(str) {
-    supportComment.childNodes[0].textContent = str;
+//Courtesy of https://stackoverflow.com/a/11486026
+function fancyTimeFormat(duration) {
+  // Hours, minutes and seconds
+  const hrs = ~~(duration / 3600);
+  const mins = ~~((duration % 3600) / 60);
+  const secs = ~~duration % 60;
+
+  // Output like "1:01" or "4:03:59" or "123:03:59"
+  let ret = "";
+
+  if (hrs > 0) {
+    ret += "" + hrs + ":" + (mins < 10 ? "0" : "");
+  }
+
+  ret += "" + mins + ":" + (secs < 10 ? "0" : "");
+  ret += "" + secs;
+
+  return ret;
 }
 
-function printValueOf(obj) {
-    console.info(
-    obj.getName() +
-    " costs " + Beautify(obj.getPrice()) +
-    " and is valued at " + Beautify(obj.getPrice() / obj.getCps()) +
-    " cookies per CPS!");
+function priceLine(price) {
+    line = document.createElement("div");
+    line.classList.add("price");
+    line.classList.add("plain");
+    line.append(Beautify(price));
+    return line;
 }
 
-function evaluateBuilding(building) {
-    printValueOf(wrapBuilding(building.id));
+function buildStatLine(title, text) {
+    line = document.createElement("div");
+    line.classList.add("listing");
+    formattedTitle = document.createElement("b");
+    formattedTitle.append(title);
+    line.append(formattedTitle);
+    line.append(" ");
+    line.append(text);
+    return line;
 }
 
-function evaluateUpgrade(upgrade) {
-    printValueOf(wrapUpgrade(upgrade.name));
+function addNewSection(currentSection, title) {
+    newSection = document.createElement("div");
+    newSection.classList.add("subsection");
+  
+    currentSection.parentNode.insertBefore(newSection, currentSection.nextSibling);
+  
+    if(title) {
+        sectionTitle = document.createElement("div");
+        sectionTitle.classList.add("title");
+        sectionTitle.style.position = "relative";
+        sectionTitle.append(title);
+        newSection.appendChild(sectionTitle);
+    }
+  
+    return newSection;
+}
+
+function addBotStatsToMenu() {
+    section = addNewSection($('#menu .section'), "CookieBot Status");
+    
+    if(nextBuy === nextCostEffective) {
+      section.appendChild(buildStatLine("Current cost effective buy:", nextCostEffective.getName()));
+      section.appendChild(buildStatLine("For:", priceLine(nextCostEffective.getPrice())));
+      section.appendChild(buildStatLine("Total time to buy:", fancyTimeFormat(totalCostEffectiveTimeToBuy)));
+      section.appendChild(buildStatLine("Remaining time to buy:", fancyTimeFormat(remainingTimeToBuy)));
+      section.appendChild(buildStatLine("Effectiveness:", Beautify(nextCostEffective.getPrice() / nextCostEffective.getCps()) + " C/CpS"));
+    } else {
+      section.appendChild(buildStatLine("Current most efficient buy:", nextCostEffective.getName()));
+      section.appendChild(buildStatLine("For:", priceLine(nextCostEffective.getPrice())));
+      section.appendChild(buildStatLine("Total time to buy:", fancyTimeFormat(totalCostEffectiveTimeToBuy)));
+      section.appendChild(buildStatLine("Effectiveness:", Beautify(nextCostEffective.getPrice() / nextCostEffective.getCps()) + " C/CpS"));
+      section = addNewSection(section);
+      section.appendChild(buildStatLine("Next intermediary objective:", nextBuy.getName()));
+      section.appendChild(buildStatLine("For:", priceLine(nextBuy.getPrice())));
+      section.appendChild(buildStatLine("Total time to buy:", fancyTimeFormat(totalTimeToBuy)));
+      section.appendChild(buildStatLine("Remaining time to buy:", fancyTimeFormat(remainingTimeToBuy)));
+      section.appendChild(buildStatLine("Timesave:", fancyTimeFormat(timeSave)));
+      section.appendChild(buildStatLine("Effectiveness:", Beautify(nextBuy.getPrice() / nextBuy.getCps()) + " C/CpS"));
+    }
+}
+
+function updateMenuOverride() {
+    originalUpdateMenu();
+    if (Game.onMenu=='stats') {
+        addBotStatsToMenu();
+    }
+}
+
+function injectBotStats() {
+    Game.UpdateMenu = updateMenuOverride;
 }
 
 //}
@@ -806,7 +885,7 @@ function manageGarden() {
 
 //}
 /*===================================================
-    DEBUG AND INFO FUNCTIONS
+    DEBUG FUNCTIONS
 ===================================================*/
 //{
 
@@ -851,36 +930,27 @@ function toggleDebugMarket(everyX = 5) {
     }
 }
 
-var originalUpdateMenu = Game.updateMenu;
-
-function updateMenuStatsInject() {
-  originalUpdateMenu();
- if (Game.onMenu=='stats') {
-   
- }
-}
-
 function saveProgress() {
-  text = Game.WriteSave(1);
-  date = new Date();
-  dateString = date.getDate() + " "
+    text = Game.WriteSave(1);
+    date = new Date();
+    dateString = date.getDate() + " "
                 + (date.getMonth()+1)  + " "
                 + date.getFullYear() + " "
                 + date.getHours() + " "
                 + date.getMinutes() + " "
                 + date.getSeconds();
-  filename = 'ratbakery-' + dateString + '.cookiesave'
+    filename = 'ratbakery-' + dateString + '.cookiesave'
 
-  var blob = new Blob([text], {type: 'text'}),
-      e    = document.createEvent('MouseEvents'),
-      a    = document.createElement('a')
+    var blob = new Blob([text], {type: 'text'}),
+    e = document.createEvent('MouseEvents'),
+    a = document.createElement('a')
 
-  a.download = filename
-  a.href = window.URL.createObjectURL(blob)
-  a.dataset.downloadurl =  ['cookiesave', a.download, a.href].join(':')
-  e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null)
-  a.dispatchEvent(e)
-}
+    a.download = filename
+    a.href = window.URL.createObjectURL(blob)
+    a.dataset.downloadurl =  ['cookiesave', a.download, a.href].join(':')
+    e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null)
+    a.dispatchEvent(e)
+} 
 
 //}
 /*===================================================
@@ -916,6 +986,7 @@ function start() {
     injectWipe();
     settings();
     rebuildWrappers();
+    injectBotStats();
     bots["clickerBot"] = setInterval(click, 1000 / targetClicksPerSecond);
     bots["shimmerBot"] = setInterval(clickShimmers, 1000 / shimmerClicksPerSecond);
     bots["accquirementBot"] = setInterval(buyBot, 1000 / buysPerSecond);
